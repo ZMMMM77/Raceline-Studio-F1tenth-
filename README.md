@@ -55,7 +55,7 @@ python3 -m venv .venv
 
 - `centerline.csv`：`x_m,y_m,w_tr_right_m,w_tr_left_m`，宽度是参考线到边界的法向距离，尚未扣车体余量。
 - `shortest_path.csv`：`x_m,y_m,s_m,psi_rad,kappa_radpm,steering_rad`。x/y 放前两列，便于当前 Pure Pursuit 读取。曲率与参考转角左右带符号，转角弧度，`steering_rad = atan(wheelbase*kappa)`。它是几何前馈参考，不能替代 Pure Pursuit 的纠偏转角。
-- `speed_waypoints.csv`：前七列 `x_m,y_m,vx_mps,s_m,psi_rad,kappa_radpm,ax_mps2`；从优化路线生成时增加第八列 `steering_rad`。前三列为位置和目标速度；`ax_mps2` 是从该点到下一点的规划加速度。你当前 ROS 节点只读取 x/y，必须增加读取第三列并使用路点速度的逻辑；参见 [SPEED_WAYPOINTS_ROS.md](SPEED_WAYPOINTS_ROS.md)。
+- `speed_waypoints.csv`：前七列 `x_m,y_m,vx_mps,s_m,psi_rad,kappa_radpm,ax_mps2`；从优化路线生成时增加第八列 `steering_rad`。前三列为位置和目标速度；`ax_mps2` 是从该点到下一点的规划加速度。你当前 ROS 节点只读取 x/y，必须增加读取第三列并使用路点速度的逻辑；参见 [SPEED_WAYPOINTS_ROS.md](docs/SPEED_WAYPOINTS_ROS.md)。
 - `raceline_comparison.png`：地图、中心线、优化路线叠加图。
 - `speed_profile.png`：沿赛道的目标速度、局部弯速上限和曲率。
 - `report.json`：输入参数、长度、曲率、边界余量、验证点数和局限。
@@ -77,6 +77,9 @@ OPENBLAS_NUM_THREADS=1 .venv/bin/python -m unittest discover -s tests -v
 - `planner.py`：坐标转换、地图骨架提取、曲率与边界约束优化。
 - `static/`：网页界面、地图平移缩放、曲率图与下载操作。
 - `tests/`：数学导数、车辆换算、地图变换、圆形赛道解析基准等检查。
+- `docs/`：远程连接、SLAM、waypoint 编辑、速度系统和 ROS 集成说明。
+- `启动工作台.command`：Mac 本地启动入口。
+- `outputs/`：本机生成的赛道与速度文件，不纳入 Git。
 
 服务仅绑定 127.0.0.1，并校验 Host 和同源请求。没有向网络发布。可选 WebMCP 只暴露读取当前结果状态的接口，不自动执行计算。
 

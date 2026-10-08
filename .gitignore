@@ -18,6 +18,7 @@ tmp_*
 .env
 .env.*
 remote_paths.json
+.remote/
 
 # IDE 配置
 .idea/
