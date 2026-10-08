@@ -46,8 +46,8 @@ function drawFilePreview(ctx,w,h,p=state.preview){
     ctx.beginPath();right.concat(left.slice().reverse()).forEach((pt,i)=>{const q=screen(pt);i?ctx.lineTo(...q):ctx.moveTo(...q);});ctx.closePath();ctx.fillStyle='#6a95bc20';ctx.fill();
     for(const line of p.boundaries){ctx.beginPath();line.forEach((pt,i)=>{const q=screen(pt);i?ctx.lineTo(...q):ctx.moveTo(...q);});ctx.closePath();ctx.lineWidth=1.6;ctx.strokeStyle='#90a6bd';ctx.stroke();}
   }
-  if(route&&$('showRoute').checked){ctx.beginPath();route.forEach((point,i)=>{const q=screen(point);i?ctx.lineTo(...q):ctx.moveTo(...q);});if(p.route.closed)ctx.closePath();ctx.strokeStyle='#21b99e';ctx.lineWidth=2;ctx.stroke();
-    if(route.length<=2000){ctx.fillStyle='#20bba0';for(const point of route){ctx.beginPath();ctx.arc(...screen(point),2,0,Math.PI*2);ctx.fill();}}
+  if(route&&$('showRoute').checked){if(window.editMode!=='speed'){ctx.beginPath();route.forEach((point,i)=>{const q=screen(point);i?ctx.lineTo(...q):ctx.moveTo(...q);});if(p.route.closed)ctx.closePath();ctx.strokeStyle='#21b99e';ctx.lineWidth=2;ctx.stroke();
+    if(route.length<=2000){ctx.fillStyle='#20bba0';for(const point of route){ctx.beginPath();ctx.arc(...screen(point),2,0,Math.PI*2);ctx.fill();}}}
     window.speedSystem?.paint(ctx,screen);ctx.fillStyle='#ffba76';ctx.beginPath();ctx.arc(...screen(route[0]),5,0,Math.PI*2);ctx.fill();ctx.font='11px system-ui';const first=screen(route[0]);ctx.fillText('START',first[0]+9,first[1]-9);
   }
   return {scale,cx,cy,ox,oy,screen,bounds:{minx,maxx,miny,maxy}};

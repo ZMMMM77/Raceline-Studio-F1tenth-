@@ -7,7 +7,7 @@
     $('editControls').hidden=!editor.active;$('editResume').hidden=editor.active||!editor.scene;
     const p=editor.scene?.route.points;
     $('editUndo').disabled=editor.locked||!editor.history.length;$('editRedo').disabled=editor.locked||!editor.future.length;
-    for(const id of ['editResample','editExport','editCoordinate','editSmoothAll','editSmoothSelection','editBox','editSelectAll','editClearSelection'])$(id).disabled=editor.locked;
+    for(const id of ['editCount','editCornerBias','editResample','editExport','editCoordinate','editSmoothAll','editSmoothSelection','editBox','editSelectAll','editClearSelection'])$(id).disabled=editor.locked;
     $('editX').disabled=$('editY').disabled=editor.selected<0||editor.locked;
     if(editor.selected>=0&&p){$('editX').value=p[editor.selected][0].toFixed(6);$('editY').value=p[editor.selected][1].toFixed(6);$('editSelected').textContent=`已选 ${editor.selection.size} 点 · 当前 ${editor.selected+1} / ${p.length}`;}else{$('editX').value=$('editY').value='';$('editSelected').textContent='按住 Ctrl 点击选点或取消；Ctrl 拖动空白处框选。';}
     if(editor.active){$('stageBadge').textContent='Waypoint 编辑 · 待验证';$('stageBadge').className='badge';$('plotInfo').textContent=`${p.length} 个 waypoints · 闭环编辑副本 · 未重新验证`;}
@@ -34,7 +34,7 @@
     editor.scene={map,boundaries,editing:true,route:{points:p,count:p.length,closed:true},bounds:null};editor.source=source==='preview'?state.preview.path:source==='result'?'优化轨迹 '+state.result.result_id:'中心线 '+state.track.id;
     window.speedSystem?.inherit(source==='preview'?state.preview.route:source==='result'?state.result:state.track,editor.scene.route);
     editor.displayName=source==='preview'?state.preview.path:state.track.name;editor.active=true;editor.selected=-1;editor.selection.clear();editor.history=[];editor.future=[];editor.dirty=false;editor.version++;state.editedFiles=null;
-    $('editCount').value=p.length;$('emptyState').hidden=true;document.body.classList.add('waypoint-edit-mode');state.scale=1;state.pan=[0,0];sync();draw();note('已打开编辑副本。Ctrl 点击选点，松开 Ctrl 后拖动选中点。');
+    $('editCount').value=p.length;$('editCornerBias').value='0';$('editCornerBiasValue').textContent='0% · 等距';$('emptyState').hidden=true;document.body.classList.add('waypoint-edit-mode');state.scale=1;state.pan=[0,0];sync();draw();note('已打开编辑副本。Ctrl 点击选点，松开 Ctrl 后拖动选中点。');
   }
   editor.close=()=>{
     if(!editor.active)return;moving=null;editor.box=null;editor.active=false;editor.version++;document.body.classList.remove('waypoint-edit-mode');$('editControls').hidden=true;
@@ -44,10 +44,10 @@
   editor.draw=(ctx,w,h)=>{
     editor.view=drawFilePreview(ctx,w,h,editor.scene);
     if(!editor.scene.bounds)editor.scene.bounds=editor.view.bounds;
-    if(!$('showRoute').checked)return;
+    if(window.editMode==='speed'||!$('showRoute').checked)return;
     const p=editor.scene.route.points;
     ctx.fillStyle='#4bd9bc';ctx.strokeStyle='#12273a';ctx.lineWidth=1;
-    for(let i=0;i<p.length;i++){ctx.beginPath();ctx.arc(...editor.view.screen(p[i]),editor.selection.has(i)?5:3,0,Math.PI*2);ctx.fillStyle=editor.selection.has(i)?'#ffffff':(window.speedSystem?.pointColor(i)||'#4bd9bc');ctx.fill();ctx.stroke();}
+    for(let i=0;i<p.length;i++){ctx.beginPath();ctx.arc(...editor.view.screen(p[i]),(window.editMode!=='speed'&&editor.selection.has(i))?5:3,0,Math.PI*2);ctx.fillStyle=(window.editMode!=='speed'&&editor.selection.has(i))?'#ffffff':(window.speedSystem?.pointColor(i)||'#4bd9bc');ctx.fill();ctx.stroke();}
     if(editor.box){const {start,end}=editor.box;ctx.fillStyle='#60a5fa24';ctx.strokeStyle='#79b7ff';ctx.setLineDash([5,4]);ctx.fillRect(start[0],start[1],end[0]-start[0],end[1]-start[1]);ctx.strokeRect(start[0],start[1],end[0]-start[0],end[1]-start[1]);ctx.setLineDash([]);}
   };
   window.waypointEditor=editor;
@@ -56,7 +56,7 @@
   function nearest(e){const q=local(e);let best=-1,distance=12;editor.scene.route.points.forEach((p,i)=>{const screen=editor.view.screen(p),d=Math.hypot(q[0]-screen[0],q[1]-screen[1]);if(d<distance){best=i;distance=d;}});return best;}
   canvas.onpointerdown=e=>{
     if(editor.active&&editor.locked)return;
-    if(editor.active&&$('showRoute').checked&&(e.button===0||(e.ctrlKey&&e.button===2))){
+    if(window.editMode!=='speed'&&editor.active&&$('showRoute').checked&&(e.button===0||(e.ctrlKey&&e.button===2))){
       const i=nearest(e);
       if(i>=0){
         if(e.ctrlKey){e.preventDefault();if(editor.selection.has(i))editor.selection.delete(i);else editor.selection.add(i);editor.selected=editor.selection.has(i)?i:[...editor.selection][0]??-1;sync();draw();return;}
@@ -87,9 +87,10 @@
   $('editResume').onclick=()=>{if(!editor.scene||state.busy||editor.locked)return;editor.active=true;editor.version++;document.body.classList.add('waypoint-edit-mode');$('emptyState').hidden=true;state.scale=1;state.pan=[0,0];sync();draw();note('已恢复上次编辑副本。');};
   $('editBegin').onclick=begin;$('editExit').onclick=editor.close;
   $('editCoordinate').onclick=()=>{if(editor.locked||editor.selected<0)return;const x=$('editX').value,y=$('editY').value;if(!x.trim()||!y.trim()||!Number.isFinite(+x)||!Number.isFinite(+y)){note('请输入有效的 X/Y 坐标。',true);return;}remember();const p=editor.scene.route.points,dx=+x-p[editor.selected][0],dy=+y-p[editor.selected][1];for(const i of editor.selection)p[i]=[p[i][0]+dx,p[i][1]+dy];changed();note('已按当前节点坐标移动所选节点。');};
-  $('editUndo').onclick=()=>{if(editor.locked||!editor.history.length)return;editor.future.push(copy(editor.scene.route.points));editor.scene.route.points=editor.history.pop();editor.selected=-1;editor.selection.clear();$('editCount').value=editor.scene.route.points.length;changed();note('已撤销。');};
-  $('editRedo').onclick=()=>{if(editor.locked||!editor.future.length)return;editor.history.push(copy(editor.scene.route.points));editor.scene.route.points=editor.future.pop();editor.selected=-1;editor.selection.clear();$('editCount').value=editor.scene.route.points.length;changed();note('已重做。');};
-  $('editResample').onclick=async()=>{if(editor.locked)return;const count=Number($('editCount').value);if(!Number.isInteger(count)||count<12||count>5000){note('请输入 12–5000 的整数点数。',true);return;}editor.locked=true;sync();const version=editor.version;try{const d=await api('/api/waypoints/resample',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({points:editor.scene.route.points,count})});if(editor.version!==version)return;remember();editor.scene.route.points=d.points;editor.selected=-1;editor.selection.clear();changed();note(`已生成 ${d.count} 个等距 waypoint。`);}catch(e){note(e.message,true);}finally{editor.locked=false;sync();}};
+  $('editUndo').onclick=()=>{if(editor.locked||!editor.history.length)return;editor.future.push(copy(editor.scene.route.points));editor.scene.route.points=editor.history.pop();editor.selected=-1;editor.selection.clear();$('editCount').value=editor.scene.route.points.length;changed();$('editCornerBias').oninput();note('已撤销。');};
+  $('editRedo').onclick=()=>{if(editor.locked||!editor.future.length)return;editor.history.push(copy(editor.scene.route.points));editor.scene.route.points=editor.future.pop();editor.selected=-1;editor.selection.clear();$('editCount').value=editor.scene.route.points.length;changed();$('editCornerBias').oninput();note('已重做。');};
+  $('editCornerBias').oninput=()=>{const value=Number($('editCornerBias').value);$('editCornerBiasValue').textContent=value?`${value}% · 待应用`:'0% · 等距（待应用）';};
+  $('editResample').onclick=async()=>{if(editor.locked)return;const count=Number($('editCount').value),cornerBias=Number($('editCornerBias').value)/100;if(!Number.isInteger(count)||count<12||count>5000){note('请输入 12–5000 的整数点数。',true);return;}editor.locked=true;sync();const version=editor.version;try{const d=await api('/api/waypoints/resample',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({points:editor.scene.route.points,count,corner_bias:cornerBias})});if(editor.version!==version)return;remember();editor.scene.route.points=d.points;editor.selected=-1;editor.selection.clear();changed();$('editCornerBiasValue').textContent=cornerBias?`${Math.round(cornerBias*100)}% · 已应用`:'0% · 等距';note(`已生成 ${d.count} 个 waypoint · ${cornerBias?'弯道加密 '+Math.round(cornerBias*100)+'%':'等距分布'}，保留起点，可撤销。`);}catch(e){note(e.message,true);}finally{editor.locked=false;sync();}};
   async function smooth(all){
     if(editor.locked)return;const selection=all?null:[...editor.selection];if(selection&&selection.length<3){note('请至少选中三个节点，或使用“平滑整圈”。',true);return;}
     editor.locked=true;sync();const version=editor.version;

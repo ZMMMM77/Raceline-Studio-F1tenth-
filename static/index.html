@@ -60,12 +60,17 @@
 <div class="curve-panel velocity-chart"><div><h2>速度曲线</h2><span id="speedCaption" class="hint">生成后显示直道与弯道目标速度</span></div><canvas id="speedCanvas" aria-label="沿路径的目标速度"></canvas></div>
 <div id="message" role="status" aria-live="polite">连接 Jetson，从左侧文件树打开地图或 CSV。</div>
 </section>
-<aside class="inspector"><details class="tool-group waypoint-panel" open><summary>① Waypoint 编辑</summary>
+<aside class="inspector"><div class="edit-mode-tabs" role="tablist" aria-label="编辑栏目"><button id="pointMode" role="tab" aria-selected="true">1. 点</button><button id="speedMode" role="tab" aria-selected="false">2. 速度</button></div><details class="tool-group waypoint-panel" open><summary>① Waypoint 编辑</summary>
 <label>编辑来源<select id="editSource"><option value="result">生成的优化轨迹</option><option value="center">生成的中心线</option><option value="preview">当前预览的 CSV</option></select></label>
 <button id="editBegin" class="secondary full">编辑这条路线</button><button id="editResume" class="subtle full" hidden>继续上次编辑</button>
 <div id="editControls" hidden>
-<label>Waypoint 个数<input id="editCount" type="number" min="12" max="5000" step="1" value="200"></label><button id="editResample" class="secondary full">按此点数重新生成</button>
-<p class="hint">沿闭环等距分布，保留起点。减少点数会改变局部形状。</p>
+<label>Waypoint 总点数<input id="editCount" type="number" min="12" max="5000" step="1" value="200"></label>
+<label class="density-setting" for="editCornerBias">弯道加密 <output id="editCornerBiasValue">0% · 等距</output></label>
+<input id="editCornerBias" type="range" min="0" max="100" step="1" value="0" aria-describedby="editDensityHelp">
+<div class="density-endpoints"><span>等距分布</span><span>弯道更密</span></div>
+<p id="editDensityHelp" class="hint">总点数不变；向右让直道更疏、弯道更密。点击下方按钮应用，保留起点，可撤销。</p>
+<button id="editResample" class="secondary full">按点数与分布重新生成</button>
+<p class="hint">减少点数会改变局部形状。</p>
 <label class="check"><input id="editBoundary" type="checkbox" checked>显示原赛道边界</label>
 <div class="edit-actions"><button id="editBox" hidden aria-pressed="false">框选多个点</button><button id="editSelectAll">全选</button><button id="editClearSelection">清除</button></div><p class="hint">Ctrl 点击增减选点；Ctrl 拖动空白处框选。松开 Ctrl 后拖动选中点，整组一起移动。</p>
 <label class="check"><input id="editDrag" type="checkbox" checked>允许拖动已选 waypoint</label><p id="editSelected" class="hint">Ctrl 点击节点选中；普通拖动空白处平移。</p>
@@ -74,7 +79,7 @@
 <div class="smooth-panel"><label>平滑强度<select id="editSmoothLevel"><option value="3">轻微</option><option value="8" selected>标准</option><option value="16">较强</option></select></label><div class="edit-actions"><button id="editSmoothSelection">平滑选中段</button><button id="editSmoothAll">一键平滑整圈</button></div><p class="hint">保留点数，局部平滑不移动未选点。可撤销。</p></div>
 <button id="editExport" class="primary full">导出编辑后的 CSV</button><button id="editExit" class="subtle full">返回原路线</button>
 <p class="hint">修改只作用于编辑副本。编辑后需重新检查曲率和边界；导出不包含旧速度。</p>
-</div><button id="toVelocity" class="secondary full">下一步：设置速度 →</button><p id="editMessage" class="hint" role="status"></p></details><details class="tool-group velocity-controls" open><summary>② 速度编辑</summary><div class="two-col">
+</div><button id="toVelocity" class="secondary full">下一步：设置速度 →</button><p id="editMessage" class="hint" role="status"></p></details><details class="tool-group velocity-controls" open><summary>② 速度编辑</summary><div class="edit-actions"><span id="speedSelectionCount">已选 0 点</span><button id="speedSelectAll">全选</button><button id="speedClear">清除</button></div><p class="hint">Ctrl 点击赛道或曲线选点；Ctrl 拖动赛道空白处框选。速度选点独立保存。</p><div class="two-col">
 <label>最低速度 / m/s<input id="v_min" type="number" value="1.5" min="0.01" step="0.1"></label><label>最高速度 / m/s<input id="v_max" type="number" value="7.6" min="0.01" step="0.1"></label>
 <label>加速度 / m/s²<input id="a_max" type="number" value="6" min="0.01" step="0.1"></label><label>制动 / m/s²<input id="a_brake" type="number" value="8" min="0.01" step="0.1"></label>
 <label>低摩擦系数 μ<input id="mu_min" type="number" value="0.41" min="0.001" step="0.01"></label><label>高摩擦系数 μ<input id="mu_max" type="number" value="0.70" min="0.001" step="0.01"></label></div>
@@ -82,7 +87,7 @@
 <div class="edit-actions"><button id="speedDown">选中点 −5%</button><button id="speedUp">选中点 +5%</button></div>
 <label>选中点速度比例倍率<input id="speedFactor" type="range" min="0.5" max="1.5" step="0.01" value="1"></label><button id="speedScale" class="secondary full">应用倍率 ×1.00</button>
 <div class="edit-actions"><button id="muLow">设为低摩擦</button><button id="muHigh">设为高摩擦</button><button id="speedUndo">撤销调速</button></div>
-<p id="velocityNote" class="hint">进入 Waypoint 编辑并选中节点，可批量调速或设置摩擦系数。手动调速不会重新施加动力学限制。</p>
+<p id="velocityNote" class="hint">在速度栏目中选中节点，可批量调速或设置摩擦系数。手动调速不会重新施加动力学限制。</p>
 <label>MPPI 单侧宽度 / m（导出常量）<input id="width" type="number" min="0.01" value="1" step="0.1"></label>
 <p class="hint">Pure Pursuit：0–1 比例＋μ；MPPI：m/s＋μ。默认参数沿用案例，请按车辆设置。</p><button id="toSave" class="secondary full">下一步：检查与保存 →</button></details><div class="inspector-title">文件信息</div><div id="fileInfo" class="file-info">从左侧打开地图或路线。</div><button id="clearPreviewMap" class="subtle full" hidden>移除叠加地图</button><button id="backToPlanning" class="secondary full" hidden>返回规划结果</button></aside>
-</main><script src="/static/app.js"></script><script src="/static/preview.js"></script><script src="/static/remote.js"></script><script src="/static/waypoint_edit.js"></script><script src="/static/speed_system.js"></script><script src="/static/workflow.js"></script><script src="/static/left_settings.js"></script><script src="/static/background.js"></script></body></html>
+</main><script src="/static/app.js"></script><script src="/static/preview.js"></script><script src="/static/remote.js"></script><script src="/static/waypoint_edit.js"></script><script src="/static/speed_system.js"></script><script src="/static/workflow.js"></script><script src="/static/left_settings.js"></script><script src="/static/background.js"></script><script src="/static/edit_modes.js"></script></body></html>

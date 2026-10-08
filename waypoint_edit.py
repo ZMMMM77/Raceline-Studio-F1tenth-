@@ -12,11 +12,32 @@ def points(value):
         raise PlanningError('相邻点不能重合；闭环无需重复首点。')
     return p
 
-def resample_points(value,count):
+def resample_points(value,count,corner_bias=0):
     p=points(value)
     if isinstance(count,bool) or not isinstance(count,int) or not 12<=count<=5000:
         raise PlanningError('Waypoint 个数必须是 12–5000 的整数。')
-    q,_=resample(p,count=count)
+    if isinstance(corner_bias,bool) or not isinstance(corner_bias,(int,float)) or not np.isfinite(corner_bias) or not 0<=corner_bias<=1:
+        raise PlanningError('弯道加密强度必须在 0–1 之间。')
+    if corner_bias==0:
+        q,_=resample(p,count=count)
+    else:
+        # Estimate curvature on a uniform arc-length grid, independent of input density.
+        # Smoothing is only for density estimation; output stays on the input polyline.
+        from scipy.ndimage import gaussian_filter1d
+        n=min(40000,max(2048,8*len(p)))
+        dense,_=resample(p,count=n)
+        smooth=gaussian_filter1d(dense,max(2,n*.005),axis=0,mode='wrap')
+        d1=(np.roll(smooth,-1,axis=0)-np.roll(smooth,1,axis=0))/2
+        d2=np.roll(smooth,-1,axis=0)-2*smooth+np.roll(smooth,1,axis=0)
+        k=np.abs(d1[:,0]*d2[:,1]-d1[:,1]*d2[:,0])/np.maximum(np.linalg.norm(d1,axis=1)**3,1e-15)
+        scale=float(np.percentile(k,95))
+        weight=1+4*corner_bias*np.clip(k/max(scale,1e-12),0,1)
+        s,total=arc(p)
+        ds=total/n
+        mass=np.r_[0,np.cumsum((weight+np.roll(weight,-1))/2*ds)]
+        targets=np.linspace(0,mass[-1],count,endpoint=False)
+        distance=np.interp(targets,mass,np.linspace(0,total,n+1))
+        q=np.column_stack([np.interp(distance,s,np.r_[p[:,j],p[0,j]]) for j in (0,1)])
     points(q)
     return q
 
@@ -44,7 +65,7 @@ def smooth_points(value, selection=None, iterations=8, strength=0.6):
 def install_waypoint_edit(app,directory,json_write,pack):
     @app.post('/api/waypoints/resample')
     def resample_route():
-        d=request.get_json() or {};q=resample_points(d.get('points'),d.get('count'))
+        d=request.get_json() or {};q=resample_points(d.get('points'),d.get('count'),d.get('corner_bias',0))
         return jsonify(points=q.tolist(),count=len(q))
     @app.post('/api/waypoints/smooth')
     def smooth_route():
