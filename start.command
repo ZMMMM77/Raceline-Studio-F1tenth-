@@ -14,4 +14,4 @@ echo "文件夹路径配置：$(pwd)/remote_paths.json"
 echo '打开浏览器访问 http://127.0.0.1:8766'
 echo '修改 remote_paths.json 后，点击页面的“刷新文件树”。'
 echo '关闭服务：在此窗口按 Control+C。'
-exec .venv/bin/python app.py
+exec .venv/bin/python -m raceline_studio.app

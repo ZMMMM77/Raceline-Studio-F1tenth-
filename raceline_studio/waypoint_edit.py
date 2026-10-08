@@ -1,7 +1,7 @@
 """Waypoint editing operates on a copy; the optimizer and its results are unchanged."""
 import numpy as np
 from flask import request, jsonify
-from planner import PlanningError, clean_loop, arc, resample, route_geometry, has_crossing
+from .planner import PlanningError, clean_loop, arc, resample, route_geometry, has_crossing
 
 def points(value):
     try:p=np.asarray(value,dtype=float)

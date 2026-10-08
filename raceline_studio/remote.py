@@ -47,7 +47,7 @@ class Remote:
         self.identity = None
 
     def status(self):
-        from remote_paths import read_paths
+        from .remote_paths import read_paths
         config_paths = read_paths(self.root.parent)
         connected = bool(self.client and self.client.get_transport() and self.client.get_transport().is_active())
         return dict(connected=connected, profile=self.config(), identity=self.identity if connected else None, directories=[dict(label='路线 / CSV', path=config_paths['waypoint_directory']), dict(label='地图 / MAPS', path=config_paths['map_directory'])])
@@ -197,7 +197,7 @@ def install_remote(app, root):
     @bp.post('/preview')
     @endpoint
     def preview_file():
-        from file_preview import preview
+        from .file_preview import preview
         payload = request.get_json() or {}
         return preview(remote, remote.path(payload.get('path')), payload.get('format', 'auto'))
     @bp.post('/read')

@@ -8,7 +8,7 @@ from pathlib import PurePosixPath
 import numpy as np
 import yaml
 from PIL import Image
-from remote import RemoteError
+from .remote import RemoteError
 
 IMAGE_EXTS = {'.png', '.pgm', '.jpg', '.jpeg'}
 
@@ -48,7 +48,7 @@ def route_preview(data, file_format='auto'):
         raise RemoteError('无法预览路线。请检查 CSV 列格式及有效的 x/y 坐标（2–100000 点）。')
     boundaries=None
     if header and 'w_tr_right_m' in header and 'w_tr_left_m' in header:
-        from planner import normals
+        from .planner import normals
         try:
             widths=values[:,[header.index('w_tr_right_m'),header.index('w_tr_left_m')]]
             if np.isfinite(widths).all() and np.all(widths>0):

@@ -1,7 +1,7 @@
 import io
 import unittest
 import numpy as np
-from planner import parse_csv
+from raceline_studio.planner import parse_csv
 class Formats(unittest.TestCase):
     def test_explicit_waypoints_never_become_widths(self):
         t=np.linspace(0,2*np.pi,30,endpoint=False);xy=np.c_[np.cos(t),np.sin(t)]

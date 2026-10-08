@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from flask import Flask
-from remote import Remote, RemoteError, digest, install_remote
+from raceline_studio.remote import Remote, RemoteError, digest, install_remote
 
 class SFTP:
     def __init__(self, root): self.root=Path(root)
@@ -54,19 +54,19 @@ class Tests(unittest.TestCase):
         self.assertFalse(list(self.root.glob('*.tmp-*')))
     def test_read_limit(self):
         (self.root/'a.csv').write_bytes(b'abcd')
-        with patch('remote.LIMIT',3):
+        with patch('raceline_studio.remote.LIMIT',3):
             with self.assertRaises(RemoteError):self.remote.read('/a.csv')
     def test_connect_persists_no_password(self):
         ssh=Mock();ssh.open_sftp.return_value.normalize.return_value='/home/jetson'
         ssh.save_host_keys.side_effect=lambda p:Path(p).write_text('host key')
-        with patch('remote.paramiko.SSHClient',return_value=ssh):
+        with patch('raceline_studio.remote.paramiko.SSHClient',return_value=ssh):
             self.remote.connect(dict(host='jetson.local',username='jetson',password='secret',auto_connect=True))
         self.remote.vault.set_password.assert_called_once()
         self.assertNotIn('secret',self.remote.config_path.read_text())
         self.assertNotIn('password',self.remote.status()['profile'])
     def test_failed_auth_does_not_store_password(self):
         ssh=Mock();ssh.connect.side_effect=OSError('offline')
-        with patch('remote.paramiko.SSHClient',return_value=ssh):
+        with patch('raceline_studio.remote.paramiko.SSHClient',return_value=ssh):
             with self.assertRaises(OSError): self.remote.connect(dict(host='car',username='u',password='secret'))
         self.remote.vault.set_password.assert_not_called();self.assertFalse(self.remote.config_path.exists())
     def test_api_blocks_local_path_traversal(self):

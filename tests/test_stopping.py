@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 import numpy as np
-import planner
+from raceline_studio import planner
 
 PARAMS=dict(reference='rear',wheelbase=.3302,limit_mode='steering',steer=24,
             car_width=.31,car_length=.58,rear_overhang=.1,margin=.1,

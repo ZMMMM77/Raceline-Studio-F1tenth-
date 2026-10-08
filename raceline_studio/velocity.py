@@ -4,8 +4,8 @@ Menger curvature, wrapped box filtering, two forward/backward laps and ratios.
 import numpy as np
 from scipy.ndimage import uniform_filter1d
 from flask import request, jsonify
-from planner import PlanningError
-from waypoint_edit import points
+from .planner import PlanningError
+from .waypoint_edit import points
 
 
 def calculate(data):

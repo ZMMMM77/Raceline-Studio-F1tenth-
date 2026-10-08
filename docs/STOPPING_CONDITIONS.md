@@ -16,7 +16,7 @@ report.json 中新增：converged、feasible、stopped_early、stop_reason、sto
 
 ## 更新后启用
 
-保存当前需要的结果，关闭原服务终端里的运行任务（Control+C），重新打开「启动工作台.command」，然后刷新浏览器并重新导入地图。已经开始的旧任务不会热更新为新停止规则。
+保存当前需要的结果，关闭原服务终端里的运行任务（Control+C），重新打开「start.command」，然后刷新浏览器并重新导入地图。已经开始的旧任务不会热更新为新停止规则。
 
 ## 检查记录
 

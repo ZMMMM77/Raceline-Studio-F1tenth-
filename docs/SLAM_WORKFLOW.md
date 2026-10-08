@@ -29,6 +29,6 @@
 
 ## 更新后启动
 
-结束现有计算后，在 Studio 服务终端按 Control+C，重新运行“启动工作台.command”，刷新页面并重新导入文件。仅刷新页面不会更新正在运行的 Python 后端。
+结束现有计算后，在 Studio 服务终端按 Control+C，重新运行“start.command”，刷新页面并重新导入文件。仅刷新页面不会更新正在运行的 Python 后端。
 
 安装器会在 backups/before_slam_workflow_* 保存原文件，检查文件哈希后逐个替换。旧的输出结果保留。

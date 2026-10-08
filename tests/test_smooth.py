@@ -1,8 +1,8 @@
 import unittest
 import numpy as np
-from waypoint_edit import smooth_points
-from planner import PlanningError
-from file_preview import route_preview
+from raceline_studio.waypoint_edit import smooth_points
+from raceline_studio.planner import PlanningError
+from raceline_studio.file_preview import route_preview
 class SmoothTests(unittest.TestCase):
     def setUp(self):
         t=np.linspace(0,2*np.pi,80,endpoint=False);radius=10+.25*np.cos(20*t);self.p=np.c_[radius*np.cos(t),radius*np.sin(t)]

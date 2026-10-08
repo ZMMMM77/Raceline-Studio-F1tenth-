@@ -4,14 +4,14 @@
 
 ## 启动
 
-当前 Mac 已准备 `.venv`。双击 **启动工作台.command**，然后访问 <http://127.0.0.1:8766>。保持终端运行，Control+C 关闭服务。端口被占用时，先关闭旧工作台服务。
+当前 Mac 已准备 `.venv`。双击 **start.command**，然后访问 <http://127.0.0.1:8766>。保持终端运行，Control+C 关闭服务。端口被占用时，先关闭旧工作台服务。
 
 在其他机器上使用 Python 3.12 或更新的兼容版本：
 
 ```sh
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python app.py
+.venv/bin/python -m raceline_studio.app
 ```
 
 ## 两种输入
@@ -73,12 +73,11 @@ OPENBLAS_NUM_THREADS=1 .venv/bin/python -m unittest discover -s tests -v
 
 ## 文件结构
 
-- `app.py`：本地服务、文件导入、后台任务、CSV/PNG/ZIP 导出。
-- `planner.py`：坐标转换、地图骨架提取、曲率与边界约束优化。
-- `static/`：网页界面、地图平移缩放、曲率图与下载操作。
+- `raceline_studio/`：本地服务、赛道规划、远程文件、waypoint 编辑与速度计算模块。
+- `raceline_studio/static/`：网页界面、地图平移缩放、速度曲线与下载操作。
 - `tests/`：数学导数、车辆换算、地图变换、圆形赛道解析基准等检查。
 - `docs/`：远程连接、SLAM、waypoint 编辑、速度系统和 ROS 集成说明。
-- `启动工作台.command`：Mac 本地启动入口。
+- `start.command`：Mac 本地启动入口。
 - `outputs/`：本机生成的赛道与速度文件，不纳入 Git。
 
 服务仅绑定 127.0.0.1，并校验 Host 和同源请求。没有向网络发布。可选 WebMCP 只暴露读取当前结果状态的接口，不自动执行计算。

@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock
 from PIL import Image
-from file_preview import preview, route_preview
-from remote import RemoteError
+from raceline_studio.file_preview import preview, route_preview
+from raceline_studio.remote import RemoteError
 class Reader:
     def __init__(self,root):self.root=Path(root);self.sftp=self
     def read(self,path):return (self.root/path.lstrip('/')).read_bytes()

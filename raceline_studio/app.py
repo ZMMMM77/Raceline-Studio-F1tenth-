@@ -2,7 +2,7 @@ import os
 os.environ.setdefault('OPENBLAS_NUM_THREADS','1')
 os.environ.setdefault('OMP_NUM_THREADS','1')
 from pathlib import Path
-os.environ.setdefault('MPLCONFIGDIR',str(Path(__file__).resolve().parent/'.cache'/'matplotlib'))
+os.environ.setdefault('MPLCONFIGDIR',str(Path(__file__).resolve().parent.parent/'.cache'/'matplotlib'))
 import json
 import io
 import uuid
@@ -17,9 +17,9 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.transforms import Affine2D
-from planner import PlanningError, MapData, parse_csv, resample, arc, normals, optimize, has_crossing, plan_speed_profile, route_geometry
+from raceline_studio.planner import PlanningError, MapData, parse_csv, resample, arc, normals, optimize, has_crossing, plan_speed_profile, route_geometry
 
-ROOT=Path(__file__).resolve().parent
+ROOT=Path(__file__).resolve().parent.parent
 OUTPUT=ROOT/'outputs';OUTPUT.mkdir(exist_ok=True)
 app=Flask(__name__,static_folder='static',static_url_path='/static')
 app.config['MAX_CONTENT_LENGTH']=45*1024*1024
@@ -173,7 +173,7 @@ def import_track():
             w=m.widths(p,cap=False);boundary_mode='map'
             warnings.append('保留 CSV 路线形状，仅按弧长重采样；边界以原始地图为准，CSV 自带宽度不作为障碍边界。')
         elif w is None:
-            from planner import positive
+            from raceline_studio.planner import positive
             width=positive(request.form.get('fallback_width'),'缺失时的单侧赛道宽度',high=100)
             w=np.full((len(p),2),width)
             warnings.append('使用手动填写的统一宽度。结果只针对该假定走廊，未检查真实墙壁。')
@@ -192,7 +192,7 @@ def start():
     data=request.get_json();ident=data.get('track_id')
     if ident not in TRACKS:raise PlanningError('请重新导入地图，原会话可能已过期。')
     data['parameters']=dict(data.get('parameters') or {},boundary_mode=TRACKS[ident]['boundary_mode'])
-    from planner import vehicle_parameters, optimization_limits
+    from raceline_studio.planner import vehicle_parameters, optimization_limits
     optimization_limits(data.get('parameters',{}))
     vehicle_parameters(data.get('parameters',{}))
     if not COMPUTE_LOCK.acquire(blocking=False):raise PlanningError('已有一项计算正在运行，请等待它完成。')
@@ -229,7 +229,7 @@ def speed_profile():
     path=saved['path'] if saved else track['dir'];ident=result['result_id'] if saved else track['id']
     params=data.get('parameters') or {}
     # Compatibility endpoint; the UI uses /api/velocity/* for the active edit copy.
-    from velocity import calculate
+    from raceline_studio.velocity import calculate
     v=calculate({'points':result['route'],'parameters':{
         'v_max':params.get('base_speed',7.6),'v_min':params.get('v_min',.01),
         'mu_min':float(params.get('lateral_accel',4.0221))/9.81,
@@ -274,13 +274,13 @@ def download(ident,filename):
     if filename not in allowed:return jsonify(error='文件不存在。'),404
     return send_from_directory(OUTPUT/ident,filename,as_attachment=request.args.get('download')=='1')
 
-from waypoint_edit import install_waypoint_edit
+from raceline_studio.waypoint_edit import install_waypoint_edit
 install_waypoint_edit(app, directory, json_write, pack)
 
-from velocity import install_velocity
+from raceline_studio.velocity import install_velocity
 install_velocity(app, directory, json_write, pack)
 
-from remote import install_remote
+from raceline_studio.remote import install_remote
 REMOTE = install_remote(app, ROOT)
 
 if __name__=='__main__':app.run(host='127.0.0.1',port=8766,debug=False,threaded=True)

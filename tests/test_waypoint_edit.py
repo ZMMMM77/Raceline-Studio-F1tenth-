@@ -2,9 +2,9 @@ import io,unittest,tempfile,json,zipfile
 from pathlib import Path
 from unittest.mock import patch
 import numpy as np
-from planner import PlanningError
-from waypoint_edit import resample_points,points
-from app import app
+from raceline_studio.planner import PlanningError
+from raceline_studio.waypoint_edit import resample_points,points
+from raceline_studio.app import app
 class EditTests(unittest.TestCase):
     def setUp(self):
         t=np.linspace(0,2*np.pi,80,endpoint=False);self.p=np.c_[10*np.cos(t),10*np.sin(t)]
@@ -22,9 +22,9 @@ class EditTests(unittest.TestCase):
         p=resample_points(self.p,48);p[3]+=[.05,.02]
         with tempfile.TemporaryDirectory() as t:
             target=Path(t);ident='20261008_010101_aabbccdd'
-            with patch('app.directory',return_value=(ident,target)):
+            with patch('raceline_studio.app.directory',return_value=(ident,target)):
                 # installer has a reference to the original helper; patch its OUTPUT instead
-                with patch('app.OUTPUT',target):
+                with patch('raceline_studio.app.OUTPUT',target):
                     c=app.test_client();r=c.post('/api/waypoints/export',json={'points':p.tolist(),'source':'test'},headers={'X-Raceline-Local':'1'})
             self.assertEqual(r.status_code,200,r.json);data=np.loadtxt(Path(r.json['output_dir'])/'edited_waypoints.csv',delimiter=',');np.testing.assert_allclose(data[:,:2],p,atol=1e-8)
             self.assertEqual(len(data),48);self.assertFalse(r.json['report']['validated_feasible']);self.assertEqual(data.shape[1],5)

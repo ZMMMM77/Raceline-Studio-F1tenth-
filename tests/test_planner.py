@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 from PIL import Image
 from scipy.optimize._numdiff import approx_derivative
-from planner import (MapData, PlanningError, parse_csv, normals, SplineProblem,
+from raceline_studio.planner import (MapData, PlanningError, parse_csv, normals, SplineProblem,
                      optimize, vehicle_parameters, plan_speed_profile)
 
 PARAMS=dict(wheelbase=.3302,steer=24,car_width=.31,car_length=.58,

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import numpy as np
 
-import app as studio
+from raceline_studio import app as studio
 
 
 class SpeedExportTests(unittest.TestCase):

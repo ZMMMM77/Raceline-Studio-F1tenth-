@@ -3,10 +3,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 import numpy as np
-from velocity import calculate
-from planner import PlanningError
-from file_preview import route_preview
-import app as studio
+from raceline_studio.velocity import calculate
+from raceline_studio.planner import PlanningError
+from raceline_studio.file_preview import route_preview
+from raceline_studio import app as studio
 
 class VelocityTests(unittest.TestCase):
     def payload(self):

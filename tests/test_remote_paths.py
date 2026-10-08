@@ -1,6 +1,6 @@
 import json,tempfile,unittest
 from pathlib import Path
-from remote_paths import read_paths
+from raceline_studio.remote_paths import read_paths
 class PathTests(unittest.TestCase):
     def test_reads_edited_paths_immediately(self):
         with tempfile.TemporaryDirectory() as t:

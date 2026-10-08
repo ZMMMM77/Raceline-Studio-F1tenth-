@@ -1,7 +1,7 @@
 import unittest
 import numpy as np
 from scipy.optimize._numdiff import approx_derivative
-from planner import SplineProblem, optimize, vehicle_parameters, PlanningError, plan_speed_profile
+from raceline_studio.planner import SplineProblem, optimize, vehicle_parameters, PlanningError, plan_speed_profile
 from test_planner import PARAMS
 
 class CurvatureTests(unittest.TestCase):
