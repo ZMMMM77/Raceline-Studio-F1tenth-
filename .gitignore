@@ -1,0 +1,33 @@
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 虚拟环境
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# 临时文件
+tmp_*
+*.log
+
+# 敏感配置
+.env
+.env.*
+remote_paths.json
+
+# IDE 配置
+.idea/
+.vscode/
+
+# 缓存
+.cache/
+
+# 历史备份
+backups/
+
+# 运行结果
+outputs/

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Raceline Studio · 远程赛道工作台</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23151f30'/%3E%3Cpath d='M8 23V9h10q8 0 5 7-2 3-8 2l9 7M9 16h10' fill='none' stroke='%233dd6bb' stroke-width='3'/%3E%3C/svg%3E"><link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<header><div class="brand"><span class="brand-icon">R</span><div><strong>RACELINE <span>STUDIO</span></strong><small>远程赛道工作台</small></div></div><div class="header-right"><span class="local">REMOTE WORKSPACE / JETSON</span><button id="demo" class="subtle">载入示例赛道</button></div></header>
+<main><aside class="explorer remote-panel">
+<div class="explorer-title"><span>文件</span><span class="explorer-tag">JETSON / SSH</span></div>
+<details class="connection-settings"><summary><span class="remote-dot" id="remoteDot"></span><span id="remoteStatus">未连接 · 设置 SSH</span></summary>
+<div class="remote-grid"><label>主机 IP / 名称<input id="sshHost" placeholder="192.168.1.100" autocomplete="off"></label><label>用户名<input id="sshUser" placeholder="jetson" autocomplete="username"></label><label>端口<input id="sshPort" type="number" min="1" max="65535" value="22"></label><label>密码<input id="sshPassword" type="password" placeholder="首次填写，之后自动登录" autocomplete="new-password"></label></div>
+<label class="check"><input id="sshAuto" type="checkbox" checked>下次自动连接</label><div class="remote-actions"><button id="sshConnect" class="primary">连接</button><button id="sshDisconnect">断开</button><button id="sshForget">忘记</button></div></details>
+<div class="explorer-section">读取位置</div><div id="remoteRoots" class="root-shortcuts"></div>
+<div class="remote-path"><input id="remoteDirectory" value="~" aria-label="Jetson 读取文件夹路径" placeholder="输入Jetson 读取文件夹路径"><button id="remoteRefresh" title="打开目录">打开</button></div>
+<div class="explorer-toolbar"><button id="remoteUp">↻ 刷新文件树</button><span id="fileCount">文件树</span></div>
+<div id="remoteFiles"><div id="remoteListing" class="remote-list">连接后自动显示小车上的文件树。</div></div>
+<div id="remoteMessage" role="status" aria-live="polite">等待连接 Jetson。</div>
+<details class="tool-group"><summary>规划与导入</summary><div class="controls">
+<div class="section-title"><span class="step">01</span><h2>导入赛道</h2></div>
+<div class="tabs" role="tablist" aria-label="导入方式"><button id="csvTab" role="tab" aria-selected="true" class="active">已有 CSV</button><button id="mapTab" role="tab" aria-selected="false">SLAM 地图</button></div>
+<p id="importHelp" class="hint">中心线 CSV 可单独使用，也可附 PNG。附 YAML 后可按米制坐标叠加并检查墙壁。</p>
+<div id="csvUpload" class="file-row"><label class="upload" role="button" tabindex="0" for="csvFile"><span>＋</span> 选择路线 CSV</label><input id="csvFile" type="file" accept=".csv,.txt" hidden><small id="csvName">尚未选择</small></div>
+<div class="file-row"><label class="upload" role="button" tabindex="0" for="imageFile"><span>＋</span> 地图 PNG / PGM</label><input id="imageFile" type="file" accept=".png,.pgm,.jpg,.jpeg" hidden><small id="imageName">可选</small></div>
+<div class="file-row"><label class="upload" role="button" tabindex="0" for="yamlFile"><span>＋</span> 地图 YAML</label><input id="yamlFile" type="file" accept=".yaml,.yml" hidden><small id="yamlName">CSV 模式可选；地图模式必需</small></div>
+<p id="csvDetection" class="hint" role="status">CSV 默认按表头识别；不明确时再选择列排列。</p><details id="advancedImport" class="advanced-settings"><summary>高级导入设置</summary><label>本机导入 · CSV 列排列<select id="csvFormat"><option value="auto">自动识别（推荐）</option><option value="xy_widths">中心线：x,y,右宽,左宽（4 列）</option><option value="pure_pursuit">Pure Pursuit：x,y,yaw,speed（4/5 列）</option><option value="mppi">Levine MPPI：s,x,y,…（9/10 列）</option></select></label><p class="hint">Pure Pursuit / MPPI 模式先导入坐标，速度需重新生成；无地图时请填写单侧宽度。</p>
+<label>Jetson 预览 · CSV 列排列<select id="previewFormat"><option value="auto">自动识别（推荐）</option><option value="pure_pursuit">Pure Pursuit（4/5 列）</option><option value="mppi">MPPI（9/10 列）</option></select></label><details id="fallbackOptions"><summary>缺少宽度或 YAML？</summary><label>CSV 缺宽度时：单侧宽度 / m<input id="fallbackWidth" type="number" min="0.1" step="0.1" placeholder="留空则由地图计算"></label><p class="hint">CSV＋PNG 无 YAML 可以导入，PNG 会单独预览。它不会参与边界检查；提供 YAML 后才能对齐地图。</p></details>
+<details><summary>地图边界与清理</summary>
+<label>CSV 边界来源<select id="boundarySource"><option value="auto">有地图时以原始地图为准（推荐）</option><option value="csv">保留 CSV 宽度，同时检查地图</option></select></label>
+<p class="hint">已有 CSV 保留路线形状，仅按弧长重采样。地图模式不把宽度射线端点连接成墙壁；优化分为可行性修复和路线优化。</p>
+<label class="check"><input id="cleanupMap" type="checkbox" checked>清理地图提取副本（仅自动提取参考线时）</label>
+<div class="two-col"><label>填补小孔最大面积 / m²<input id="cleanupHoleArea" type="number" value="0.01" min="0" max="0.1" step="0.0025"></label><label>补缝半径 / m<input id="cleanupGapRadius" type="number" value="0.05" min="0" max="0.15" step="0.01"></label></div>
+<p class="hint">清理仅用于稳定参考线提取，原始地图始终参与净空检查。填 0 可关闭对应处理；复杂岔路仍建议提供参考 CSV。</p>
+</details>
+<label class="check reverse"><input id="reverse" type="checkbox">反转行驶方向</label>
+<p class="hint">Jetson 读取目录可在 remote_paths.json 修改。导入规划只读取路线几何，速度重新计算。</p></details><button id="import" class="secondary full">导入并生成中心线</button>
+<div class="divider"></div>
+<details id="vehicleSettings" class="advanced-settings"><summary>车辆参数与约束</summary><div class="section-title"><span class="step">02</span><h2>车辆与约束</h2></div>
+<label>转弯限制方式<select id="limitMode"><option value="steering">最大前轮转角＋轴距</option><option value="radius">直接输入最小转弯半径</option></select></label>
+<div id="steeringInputs"><label>转角定义<select id="angleType"><option value="equivalent">Ackermann 等效前轮转角</option><option value="inner">实测内侧前轮转角</option></select></label><label>最大前轮转角 / °<input id="steer" type="number" min="1" max="75" step="0.1" value="24.0" placeholder="请输入你的车辆参数"></label><label id="trackInput" hidden>前轮轮距 / m<input id="wheelTrack" type="number" min="0.01" step="0.001" placeholder="左右前轮中心间距"></label></div>
+<label id="radiusInput" hidden>后轴中心最小转弯半径 / m<input id="radius" type="number" min="0.05" step="0.01" placeholder="请输入最小半径"></label>
+<label>轴距 / m<input id="wheelbase" type="number" min="0.05" step="0.0001" value="0.3302" placeholder="前后轴中心间距"></label>
+<div class="derived"><span>最小半径 <b id="derivedRadius">待填写</b></span><span>曲率上限 <b id="derivedKappa">待填写</b></span></div>
+<label>路径跟踪点<select id="reference"><option value="rear">后轴中心（当前 Ackermann 模型）</option><option value="unknown">尚不确定，先核对车辆坐标</option></select></label>
+<div class="two-col"><label>车身总宽 / m<input id="carWidth" type="number" min="0.01" step="0.01" value="0.31" placeholder="含轮胎"></label><label>车身总长 / m<input id="carLength" type="number" min="0.01" step="0.01" value="0.58" placeholder="整车外廓"></label></div>
+<div class="two-col"><label>后轴至车尾 / m<input id="rearOverhang" type="number" min="0" step="0.01" placeholder="后悬长度"></label><label>额外边界余量 / m<input id="margin" type="number" value="0.10" min="0" step="0.01"></label></div>
+<p class="hint">前轮转角、轴距、车宽、车长已按你提供的仿真车辆数据预填，仍可修改。后轴至车尾距离尚未确认。边界检查采用覆盖整车的保守包络圆。</p>
+</details><details id="advancedSolver" class="advanced-settings"><summary>高级计算设置</summary><details><summary>计算精度</summary><div class="two-col"><label>优化控制点<select id="nodes"><option value="80">80 · 快速</option><option value="140" selected>140 · 标准</option><option value="220">220 · 精细</option></select></label><label>导出间距 / m<input id="spacing" value="0.10" min="0.02" max="1" step="0.02" type="number"></label></div></details>
+<details><summary>运行截止条件</summary>
+<div class="two-col"><label>最大求解时间 / 秒<input id="maxRuntime" type="number" min="1" max="3600" step="1" value="300"></label><label>停滞检查窗口 / 次<input id="plateauWindow" type="number" min="5" max="400" step="1" value="50"></label></div>
+<label>窗口内最小改善 / %<input id="plateauPercent" type="number" min="0" max="5" step="0.01" value="0.10"></label>
+<p class="hint">同一精度阶段内，连续可行迭代的最佳目标值改善不足阈值时尝试结束；0% 可关闭停滞停止。时限包括粗网格初始化，在下一次求解检查时停止，最终验证及保存可能额外用时。仅导出通过加密约束检查的路线。</p>
+</details>
+</details><label>路线算法<select id="algorithm"><option value="shortest">最短行车线</option><option value="min_curvature">最小曲率行车线（整体平顺）</option></select></label><p id="algorithmHelp" class="hint">最小化整圈路程，满足车辆曲率与边界约束。</p>
+<button id="optimize" class="primary full" disabled><span>计算最短行车线</span><span>↗</span></button><p class="hint">两种算法均为局部数值优化；最小曲率不等于最短圈时。</p>
+<div class="divider"></div>
+</div></details><details class="tool-group"><summary>计算结果与导出</summary><div class="results"><div class="section-title"><span class="step">04</span><h2>计算结果</h2></div><div id="resultState" class="result-state">等待计算</div><div class="metric"><span>优化路线长度</span><strong id="routeLength">—<small> m</small></strong></div><details class="advanced-settings"><summary>查看详细计算指标</summary><div class="metric compact"><span>中心线长度</span><strong id="centerLength">—</strong></div><div class="metric compact"><span>相比中心线缩短（负值为增加）</span><strong id="savedLength">—</strong></div><div class="metric compact"><span>曲率平方积分 ∮κ² ds</span><strong id="curvatureEnergy">—</strong></div><div class="metric compact"><span>最大绝对曲率</span><strong id="maxCurvature">—</strong></div><div class="metric compact"><span>最小边界距离</span><strong id="minClearance">—</strong></div><div class="metric compact"><span>规划速度范围</span><strong id="speedRange">—</strong></div><div id="checks" class="checks"><p>计算后检查曲率、边界与闭合连续性。</p></div></details><div class="divider"></div><h2>导出文件</h2><p class="hint">结果自动保存到本地输出目录，也可逐个下载。</p><div class="edit-actions"><button id="exportPP">Pure Pursuit CSV</button><button id="exportMPPI">MPPI CSV</button></div><div class="export-list"><button id="exportCenter" disabled><span>中心线 CSV<small>x, y, 右宽, 左宽</small></span><b>↓</b></button><button id="exportRoute" disabled><span>最短路线 CSV<small>x, y, 弧长, 曲率, 前轮转角</small></span><b>↓</b></button><button id="exportSpeed" disabled><span>带速度的 waypoint CSV<small>x, y, vx_mps, 弧长, 曲率…</small></span><b>↓</b></button></div><details class="advanced-settings"><summary>更多导出 · 图片与打包</summary><div class="export-list"><button id="exportPNG" disabled><span>路线对比 PNG<small>地图＋中心线＋优化路线</small></span><b>↓</b></button><button id="exportSpeedPNG" disabled><span>速度曲线 PNG<small>每个位置的目标速度和曲率</small></span><b>↓</b></button><button id="exportZip" disabled><span>下载全部结果<small>CSV、PNG 和计算报告</small></span><b>↓</b></button></div></details><details class="advanced-settings"><summary>本机保存位置</summary><label class="output-label">本机保存位置<textarea id="outputPath" readonly rows="4" placeholder="导入或计算后显示"></textarea></label><button id="copyPath" class="subtle full" disabled>复制保存路径</button></details><p class="hint footnote">速度是基于所填动力学上限的规划值，仍需用实际车辆验证。</p></div></details><details class="tool-group"><summary>保存到 Jetson</summary><div class="remote-save"><div id="saveSummary" class="save-summary" aria-live="polite">尚未选择保存对象</div><label>写入内容<select id="remoteSource"><option value="speed">速度 waypoint（m/s）</option><option value="pp">Pure Pursuit（0–1 比例）</option><option value="mppi">MPPI（m/s）</option><option value="route">优化路线 CSV</option><option value="center">中心线 CSV</option><option value="edited">编辑后的 waypoint CSV</option></select></label><label>Jetson 目标文件<input id="remoteTarget" placeholder="/home/jetson/.../waypoints.csv"></label><button id="remoteSave" class="primary full">保存到 Jetson</button><p class="hint">核对上方保存对象及目标路径后保存，覆盖前自动备份。</p></div></details></aside>
+
+<section class="workspace">
+
+<div class="workspace-heading"><div><span class="eyebrow">TRACK WORKSPACE</span><h1 id="trackName">打开地图或路线</h1></div><span id="stageBadge" class="badge">等待打开</span></div>
+<div class="workflow-bar" aria-live="polite"><div id="workflowSteps">打开文件 → 选择路线 → 编辑点位 → 设置速度 → 检查与保存</div><div id="workflowContext">从左栏连接 Jetson 并打开地图或 CSV，也可载入示例。</div></div><div class="plot-shell"><div class="background-picker"><label for="backgroundChoice">背景图</label><select id="backgroundChoice"><option value="map">当前地图（坐标叠加）</option><option value="original">原始图片（单独预览）</option><option value="none">无背景图</option></select><span id="backgroundHint"></span></div><div class="plot-toolbar"><div class="legend"><label><input id="showCenter" type="checkbox" checked><i class="teal"></i>中心线</label><label><input id="showRoute" type="checkbox" checked><i class="orange"></i>路线</label><label><input id="showSpeed" type="checkbox" checked><i class="speed-gradient"></i>速度（红慢青快）</label><label><input id="showMap" type="checkbox" checked>地图</label></div><div><button id="zoomIn" title="放大" aria-label="放大">＋</button><button id="zoomOut" title="缩小" aria-label="缩小">−</button><button id="fit">适应画布</button></div></div><canvas id="trackCanvas" aria-label="赛道中心线和优化路线，可拖动平移、滚轮缩放"></canvas><div id="emptyState" class="empty"><div class="empty-symbol">◎</div><h3>从左侧打开文件</h3><p>展开左侧文件树，单击地图、YAML 或 CSV 直接预览。</p><button id="demoEmpty" class="secondary">体验示例赛道</button></div><div class="plot-footer"><span id="plotInfo">地图坐标 · 单位：米</span><span>拖动平移 / 滚轮缩放</span></div></div>
+<div class="curve-panel"><div><h2>曲率检查</h2><span id="curveCaption" class="hint">计算完成后显示沿路径的曲率</span></div><canvas id="curveCanvas" aria-label="沿路径的曲率与允许上限"></canvas></div>
+<div class="curve-panel velocity-chart"><div><h2>速度曲线</h2><span id="speedCaption" class="hint">生成后显示直道与弯道目标速度</span></div><canvas id="speedCanvas" aria-label="沿路径的目标速度"></canvas></div>
+<div id="message" role="status" aria-live="polite">连接 Jetson，从左侧文件树打开地图或 CSV。</div>
+</section>
+<aside class="inspector"><details class="tool-group waypoint-panel" open><summary>① Waypoint 编辑</summary>
+<label>编辑来源<select id="editSource"><option value="result">生成的优化轨迹</option><option value="center">生成的中心线</option><option value="preview">当前预览的 CSV</option></select></label>
+<button id="editBegin" class="secondary full">编辑这条路线</button><button id="editResume" class="subtle full" hidden>继续上次编辑</button>
+<div id="editControls" hidden>
+<label>Waypoint 个数<input id="editCount" type="number" min="12" max="5000" step="1" value="200"></label><button id="editResample" class="secondary full">按此点数重新生成</button>
+<p class="hint">沿闭环等距分布，保留起点。减少点数会改变局部形状。</p>
+<label class="check"><input id="editBoundary" type="checkbox" checked>显示原赛道边界</label>
+<div class="edit-actions"><button id="editBox" hidden aria-pressed="false">框选多个点</button><button id="editSelectAll">全选</button><button id="editClearSelection">清除</button></div><p class="hint">Ctrl 点击增减选点；Ctrl 拖动空白处框选。松开 Ctrl 后拖动选中点，整组一起移动。</p>
+<label class="check"><input id="editDrag" type="checkbox" checked>允许拖动已选 waypoint</label><p id="editSelected" class="hint">Ctrl 点击节点选中；普通拖动空白处平移。</p>
+<div class="two-col"><label>X / m<input id="editX" type="number" step="0.001"></label><label>Y / m<input id="editY" type="number" step="0.001"></label></div><button id="editCoordinate" class="secondary full">应用点坐标</button>
+<div class="edit-actions"><button id="editUndo">撤销</button><button id="editRedo">重做</button></div>
+<div class="smooth-panel"><label>平滑强度<select id="editSmoothLevel"><option value="3">轻微</option><option value="8" selected>标准</option><option value="16">较强</option></select></label><div class="edit-actions"><button id="editSmoothSelection">平滑选中段</button><button id="editSmoothAll">一键平滑整圈</button></div><p class="hint">保留点数，局部平滑不移动未选点。可撤销。</p></div>
+<button id="editExport" class="primary full">导出编辑后的 CSV</button><button id="editExit" class="subtle full">返回原路线</button>
+<p class="hint">修改只作用于编辑副本。编辑后需重新检查曲率和边界；导出不包含旧速度。</p>
+</div><button id="toVelocity" class="secondary full">下一步：设置速度 →</button><p id="editMessage" class="hint" role="status"></p></details><details class="tool-group velocity-controls" open><summary>② 速度编辑</summary><div class="two-col">
+<label>最低速度 / m/s<input id="v_min" type="number" value="1.5" min="0.01" step="0.1"></label><label>最高速度 / m/s<input id="v_max" type="number" value="7.6" min="0.01" step="0.1"></label>
+<label>加速度 / m/s²<input id="a_max" type="number" value="6" min="0.01" step="0.1"></label><label>制动 / m/s²<input id="a_brake" type="number" value="8" min="0.01" step="0.1"></label>
+<label>低摩擦系数 μ<input id="mu_min" type="number" value="0.41" min="0.001" step="0.01"></label><label>高摩擦系数 μ<input id="mu_max" type="number" value="0.70" min="0.001" step="0.01"></label></div>
+<button id="generateSpeed" class="primary full">重新计算整圈速度</button><p class="hint">曲率限速 → 闭环加速 / 制动。修改路径后自动重算速度。</p>
+<div class="edit-actions"><button id="speedDown">选中点 −5%</button><button id="speedUp">选中点 +5%</button></div>
+<label>选中点速度比例倍率<input id="speedFactor" type="range" min="0.5" max="1.5" step="0.01" value="1"></label><button id="speedScale" class="secondary full">应用倍率 ×1.00</button>
+<div class="edit-actions"><button id="muLow">设为低摩擦</button><button id="muHigh">设为高摩擦</button><button id="speedUndo">撤销调速</button></div>
+<p id="velocityNote" class="hint">进入 Waypoint 编辑并选中节点，可批量调速或设置摩擦系数。手动调速不会重新施加动力学限制。</p>
+<label>MPPI 单侧宽度 / m（导出常量）<input id="width" type="number" min="0.01" value="1" step="0.1"></label>
+<p class="hint">Pure Pursuit：0–1 比例＋μ；MPPI：m/s＋μ。默认参数沿用案例，请按车辆设置。</p><button id="toSave" class="secondary full">下一步：检查与保存 →</button></details><div class="inspector-title">文件信息</div><div id="fileInfo" class="file-info">从左侧打开地图或路线。</div><button id="clearPreviewMap" class="subtle full" hidden>移除叠加地图</button><button id="backToPlanning" class="secondary full" hidden>返回规划结果</button></aside>
+</main><script src="/static/app.js"></script><script src="/static/preview.js"></script><script src="/static/remote.js"></script><script src="/static/waypoint_edit.js"></script><script src="/static/speed_system.js"></script><script src="/static/workflow.js"></script><script src="/static/left_settings.js"></script><script src="/static/background.js"></script></body></html>
