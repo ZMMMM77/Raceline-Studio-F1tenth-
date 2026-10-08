@@ -10,6 +10,7 @@ A local web app for planning and editing F1TENTH racelines on macOS. Import a wa
 - Generate a closed route, edit individual or grouped waypoints, and adjust point density around corners.
 - View and edit waypoint speeds on the track and in the speed chart.
 - Export CSV, images, and reports; browse and save files on a Jetson through SSH.
+- Switch the interface between Chinese and English using the button above the right-side editor.
 
 ## Run on macOS
 

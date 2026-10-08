@@ -60,7 +60,7 @@
 <div class="curve-panel velocity-chart"><div><h2>速度曲线</h2><span id="speedCaption" class="hint">生成后显示直道与弯道目标速度</span></div><canvas id="speedCanvas" aria-label="沿路径的目标速度"></canvas></div>
 <div id="message" role="status" aria-live="polite">连接 Jetson，从左侧文件树打开地图或 CSV。</div>
 </section>
-<aside class="inspector"><div class="edit-mode-tabs" role="tablist" aria-label="编辑栏目"><button id="pointMode" role="tab" aria-selected="true">1. 点</button><button id="speedMode" role="tab" aria-selected="false">2. 速度</button></div><details class="tool-group waypoint-panel" open><summary>① Waypoint 编辑</summary>
+<aside class="inspector"><div class="language-switch"><button id="languageToggle" type="button" title="Switch to English" aria-label="Switch to English">English</button></div><div class="edit-mode-tabs" role="tablist" aria-label="编辑栏目"><button id="pointMode" role="tab" aria-selected="true">1. 点</button><button id="speedMode" role="tab" aria-selected="false">2. 速度</button></div><details class="tool-group waypoint-panel" open><summary>① Waypoint 编辑</summary>
 <label>编辑来源<select id="editSource"><option value="result">生成的优化轨迹</option><option value="center">生成的中心线</option><option value="preview">当前预览的 CSV</option></select></label>
 <button id="editBegin" class="secondary full">编辑这条路线</button><button id="editResume" class="subtle full" hidden>继续上次编辑</button>
 <div id="editControls" hidden>
@@ -90,4 +90,4 @@
 <p id="velocityNote" class="hint">在速度栏目中选中节点，可批量调速或设置摩擦系数。手动调速不会重新施加动力学限制。</p>
 <label>MPPI 单侧宽度 / m（导出常量）<input id="width" type="number" min="0.01" value="1" step="0.1"></label>
 <p class="hint">Pure Pursuit：0–1 比例＋μ；MPPI：m/s＋μ。默认参数沿用案例，请按车辆设置。</p><button id="toSave" class="secondary full">下一步：检查与保存 →</button></details><div class="inspector-title">文件信息</div><div id="fileInfo" class="file-info">从左侧打开地图或路线。</div><button id="clearPreviewMap" class="subtle full" hidden>移除叠加地图</button><button id="backToPlanning" class="secondary full" hidden>返回规划结果</button></aside>
-</main><script src="/static/app.js"></script><script src="/static/preview.js"></script><script src="/static/remote.js"></script><script src="/static/waypoint_edit.js"></script><script src="/static/speed_system.js"></script><script src="/static/workflow.js"></script><script src="/static/left_settings.js"></script><script src="/static/background.js"></script><script src="/static/edit_modes.js"></script></body></html>
+</main><script src="/static/i18n.js"></script><script src="/static/app.js"></script><script src="/static/preview.js"></script><script src="/static/remote.js"></script><script src="/static/waypoint_edit.js"></script><script src="/static/speed_system.js"></script><script src="/static/workflow.js"></script><script src="/static/left_settings.js"></script><script src="/static/background.js"></script><script src="/static/edit_modes.js"></script></body></html>

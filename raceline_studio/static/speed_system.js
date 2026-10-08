@@ -26,7 +26,7 @@
     ['speedDown','speedUp','speedScale','muLow','muHigh'].forEach(id=>$(id).disabled=!ok||!selected);
     $('speedUndo').disabled=!ok||!c.history.length;
     ctx.font='11px system-ui';ctx.fillStyle='#93a9c4';
-    if(!d){$('speedCaption').textContent=c?(c.failed?'速度参数或路径无效，请修改后重算':'正在计算当前路径速度…'):'打开路线后显示速度曲线';ctx.fillText('速度 / m/s',12,22);return;}
+    if(!d){$('speedCaption').textContent=c?(c.failed?'速度参数或路径无效，请修改后重算':'正在计算当前路径速度…'):'打开路线后显示速度曲线';ctx.fillText(window.i18n.t('速度 / m/s'),12,22);return;}
     const v=d.speed,lo=Math.min(...v),hi=Math.max(...v),p=d.parameters;
     $('speedRange').textContent=`${lo.toFixed(2)}–${hi.toFixed(2)} m/s`;
     $('speedCaption').textContent=`${c.label} · ${v.length} 点 · ${lo.toFixed(2)}–${hi.toFixed(2)} m/s · 估算 ${d.lap_time.toFixed(2)} s${c.manual?' · 手动调速':''}`;
@@ -34,7 +34,7 @@
     ctx.lineWidth=1;for(let i=0;i<=4;i++){const val=p.v_max*i/4;ctx.strokeStyle='#ffffff12';ctx.beginPath();ctx.moveTo(48,y(val));ctx.lineTo(w-20,y(val));ctx.stroke();ctx.fillStyle='#93a9c4';ctx.fillText(val.toFixed(1),10,y(val)+4);}
     ctx.fillText('m/s',10,12);ctx.fillText('0 m',48,h-8);ctx.fillText(d.length.toFixed(1)+' m',w-68,h-8);
     for(let i=0;i<v.length;i++){const j=(i+1)%v.length;ctx.strokeStyle=c.colors[i];ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(x(d.s[i]),y(v[i]));ctx.lineTo(x(j?d.s[j]:d.length),y(v[j]));ctx.stroke();if(window.editMode==='speed'&&c.selection.has(i)){ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x(d.s[i]),y(v[i]),3,0,2*Math.PI);ctx.fill();}}
-    if(hover>=0&&hover<v.length){const i=hover;ctx.fillStyle='#fff';ctx.fillText(`#${i+1} · ${v[i].toFixed(3)} m/s · 比例 ${d.ratio[i].toFixed(3)} · μ ${c.friction[i].toFixed(2)}`,70,14);ctx.beginPath();ctx.arc(x(d.s[i]),y(v[i]),4,0,Math.PI*2);ctx.fill();}
+    if(hover>=0&&hover<v.length){const i=hover;ctx.fillStyle='#fff';ctx.fillText(window.i18n.t(`#${i+1} · ${v[i].toFixed(3)} m/s · 比例 ${d.ratio[i].toFixed(3)} · μ ${c.friction[i].toFixed(2)}`),70,14);ctx.beginPath();ctx.arc(x(d.s[i]),y(v[i]),4,0,Math.PI*2);ctx.fill();}
   }
   function paint(ctx,screen){const c=entry();if(c)c.screen=screen;if(!c||!$('showRoute').checked)return;
     if(window.editMode==='speed'){

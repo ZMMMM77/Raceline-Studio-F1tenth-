@@ -21,7 +21,7 @@
     if(!route||route.length<12){note('请先生成所选路线，或打开至少 12 个点的 CSV。',true);return;}
     let p=copy(route);if(Math.hypot(p[0][0]-p.at(-1)[0],p[0][1]-p.at(-1)[1])<1e-7)p.pop();
     if(p.length>5000){note('当前路线超过 5000 点，请先减小输入文件或调整生成间距。',true);return;}
-    if(editor.dirty&&!confirm('重新从所选原路线开始？当前未导出的编辑副本会被替换。'))return;
+    if(editor.dirty&&!window.i18n.confirm('重新从所选原路线开始？当前未导出的编辑副本会被替换。'))return;
     let boundaries=null;
     if(source==='preview')boundaries=state.preview?.route?.boundaries||null;
     else if(state.track?.widths&&state.track.boundary_mode!=='map'){
