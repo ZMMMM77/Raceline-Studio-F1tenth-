@@ -1,89 +1,28 @@
-# Raceline Studio / 本地赛道工作台
+# Raceline Studio
 
-离线导入赛道，填写车辆尺寸及转向限制，计算满足约束的短路线，再按曲率生成每个 waypoint 的目标速度，导出 CSV 和可视化。所有计算在本机完成，不需要云端账户。
+A local web app for planning and editing F1TENTH racelines on macOS. Import a waypoint CSV or a SLAM map, adjust the route and waypoint spacing, set per-point speeds, and export the result. The file browser can read from and save to a Jetson over SSH.
 
-## 启动
+![Raceline Studio interface](RS_photo.png)
 
-当前 Mac 已准备 `.venv`。双击 **start.command**，然后访问 <http://127.0.0.1:8766>。保持终端运行，Control+C 关闭服务。端口被占用时，先关闭旧工作台服务。
+## Features
 
-在其他机器上使用 Python 3.12 或更新的兼容版本：
+- Import waypoint CSVs or PNG/PGM maps with YAML metadata.
+- Generate a closed route, edit individual or grouped waypoints, and adjust point density around corners.
+- View and edit waypoint speeds on the track and in the speed chart.
+- Export CSV, images, and reports; browse and save files on a Jetson through SSH.
+
+## Run on macOS
+
+Requires Python 3.12 and the dependencies in `requirements.txt`.
 
 ```sh
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python -m raceline_studio.app
+./start.command
 ```
 
-## 两种输入
+Open [http://127.0.0.1:8766](http://127.0.0.1:8766). If the virtual environment is already installed, just run `./start.command` or double-click it in Finder.
 
-1. **已有 CSV**：逗号分隔 `x_m,y_m,w_tr_right_m,w_tr_left_m`，或两列 `x,y`。普通表头和 `#` 注释表头均可。按行驶方向排列的完整闭环；可有或没有重复末点。CSV 单独导入即可输出规范化中心线 CSV；也可以附一张地图 PNG/PGM 作原图参考。只有附上该地图的 YAML，才会按米制坐标叠加地图并检查真实墙壁。只有两列时，使用带 YAML 的地图计算宽度，或明确输入假定的统一单侧宽度。
-2. **SLAM 地图**：PNG/PGM＋YAML（resolution、origin、negate、free_thresh、occupied_thresh）。寻找不与图像边缘连通、具有内部孔洞的自由空间分量，提取闭环骨架并去除支路，平滑得到中心线。适用于封闭、单一环形赛道；多环、开口墙、岔路等可能需要先清理地图或导入 CSV 指定路线。默认逆时针，可以反转。
+Jetson file locations can be set in the root-level `remote_paths.json`. It stays on your Mac and is excluded from Git. Generated files are saved under `outputs/`, which is also excluded from Git.
 
-支持现有 TUM 七列分号赛车线 `s_m;x_m;y_m;psi_rad;kappa_radpm;vx_mps;ax_mps2`：读取正确的 x/y 列；配地图和 YAML 时沿横截面重建近似中心线。已有赛车线并非天然的中心线，请查看导入提示。只有 PNG 无法知道地图米制比例和原点；无 YAML 时单独预览原图，不将像素与 CSV 路线强行叠加。
-
-## 填写车辆参数
-
-已按用户提供的仿真车辆数据预填等效前轮转角 24°、轴距 0.3302 m、车宽 0.31 m、车长 0.58 m。刷新后恢复这些可编辑默认值；导入新地图不会清除当前编辑。后轴至车尾距离未知，保持留空，路线优化前仍需填写。其他参数说明：
-
-- 最大前轮转角（度）和轴距（米），或后轴中心的最小转弯半径（米）。
-- 转角是 Ackermann 的**等效前轮转角**，不是方向盘传动比。若是实测内侧前轮角，还需填写前轮轮距。
-- 车身总宽、总长、后轴至车尾距离（米）。
-- 当前路径跟踪点必须是**后轴中心**；仅适用于前轮转向、后轮固定的 Ackermann 类车辆。
-- 额外边界余量。包络圆半径为 `sqrt(max(后悬,车长-后悬)^2 + (车宽/2)^2)`，以跟踪点为圆心覆盖整车。它比朝向相关的矩形检查保守，可能拒绝狭窄但实际可行的路线。
-
-等效转角与曲率：`kappa_max = tan(delta_max)/wheelbase`。内侧前轮角换算：`R_rear = wheelbase/tan(delta_inner) + wheel_track/2`。
-
-## 运算与含义
-
-中心线按弧长重采样，路径控制点沿固定法线偏移，构成位置、一阶导、二阶导首尾连续的周期三次样条。SLSQP 最小化采样后的真实路径长度（非各段长度平方和）。约束包括带符号曲率、向前进度、左右宽度、到整条重建边界的距离，以及可选栅格地图距离。
-
-优化控制点支持 80/140/220。逐轮增加约束采样，加密验证间距最多约 0.03 m，同时检查自交、首尾连续、包络余量。地图未知区域不视为可行驶区域；根据像素尺寸保守扣除栅格距离误差。求解未收敛或加密检查失败时，不导出成功路线，只保留导入中心线或明确标注上次成功结果。
-
-地图提取宽度时，法向射线在急弯可能沿着另一段赛道继续前进，因此将测得的单侧宽度以当前位置最近墙距的两倍封顶。该处理只收窄走廊，不扩大可行驶空间，但可能牺牲部分路线长度；可用已校核的中心线和宽度 CSV 代替自动提取结果。
-
-这是**带约束的局部数值最短路线**，不是全局最优证明，也不是最短圈速。曲率为加密数值检查，不是连续区间的严格解析证明。路线求解本身没有轮胎、速度、加减速、转向速率和跟踪误差模型，不应把最大转角可行直接等同于高速可行。计算参数与假设保存在报告中。
-
-## 规划路点速度
-
-导入 CSV 后可直接为**原始 CSV 路线**生成速度表，以便与既有控制器做只改变速度策略的对照；仅导入地图时则使用提取的中心线。路线优化成功后，同一按钮改为给**优化路线**生成速度表。输入本次试跑的**直道基准速度**。页面预置允许横向加速度 1.5 m/s²、加速度 1.0 m/s²、制动减速度 1.5 m/s²，均可修改；它们只是未测量时的保守试跑估计，**不是 F1TENTH 实测能力或安全保证**。新地图导入后基准速度清空，需要再次输入。
-
-算法先按每个点的曲率计算 `v_curve = min(v_base, sqrt(a_y_max / abs(kappa)))`，再在闭合赛道上前向限制加速、反向限制制动。因此尖弯之前的路点会提前降速，出弯后逐渐回到直道基准速度。生成速度表无需重新运行路线优化。页面显示路径颜色（红慢绿快）和速度曲线，另外导出 `speed_profile.png`。预计圈时只是按规划速度积分得到的模型值，不含车辆动力响应和跟踪误差，不能拿来代替仿真或实测。
-
-## 导出位置和格式
-
-自动保存在本项目 `outputs/日期时间_唯一标识/`。页面显示完整路径并可以复制；下载按钮另外保存到浏览器设置的下载位置。每次导入和每次成功计算使用新的目录，不覆盖旧结果。
-
-- `centerline.csv`：`x_m,y_m,w_tr_right_m,w_tr_left_m`，宽度是参考线到边界的法向距离，尚未扣车体余量。
-- `shortest_path.csv`：`x_m,y_m,s_m,psi_rad,kappa_radpm,steering_rad`。x/y 放前两列，便于当前 Pure Pursuit 读取。曲率与参考转角左右带符号，转角弧度，`steering_rad = atan(wheelbase*kappa)`。它是几何前馈参考，不能替代 Pure Pursuit 的纠偏转角。
-- `speed_waypoints.csv`：前七列 `x_m,y_m,vx_mps,s_m,psi_rad,kappa_radpm,ax_mps2`；从优化路线生成时增加第八列 `steering_rad`。前三列为位置和目标速度；`ax_mps2` 是从该点到下一点的规划加速度。你当前 ROS 节点只读取 x/y，必须增加读取第三列并使用路点速度的逻辑；参见 [SPEED_WAYPOINTS_ROS.md](docs/SPEED_WAYPOINTS_ROS.md)。
-- `raceline_comparison.png`：地图、中心线、优化路线叠加图。
-- `speed_profile.png`：沿赛道的目标速度、局部弯速上限和曲率。
-- `report.json`：输入参数、长度、曲率、边界余量、验证点数和局限。
-- `results.zip`：本次结果集合。
-
-CSV 均采用逗号、`#` 注释表头，不重复末点；最后一点应连回第一点。朝向以 +x 为零、逆时针为正，不采用 TUM 北向为零的约定。
-
-## 检查
-
-```sh
-OPENBLAS_NUM_THREADS=1 .venv/bin/python -m unittest discover -s tests -v
-```
-
-已使用用户提供的 Spielberg 文件验证导入路径。测试车辆参数仅用于验证算法，不作为实际车辆参数，也不预填到页面。
-
-## 文件结构
-
-- `raceline_studio/`：本地服务、赛道规划、远程文件、waypoint 编辑与速度计算模块。
-- `raceline_studio/static/`：网页界面、地图平移缩放、速度曲线与下载操作。
-- `tests/`：数学导数、车辆换算、地图变换、圆形赛道解析基准等检查。
-- `docs/`：远程连接、SLAM、waypoint 编辑、速度系统和 ROS 集成说明。
-- `start.command`：Mac 本地启动入口。
-- `outputs/`：本机生成的赛道与速度文件，不纳入 Git。
-
-服务仅绑定 127.0.0.1，并校验 Host 和同源请求。没有向网络发布。可选 WebMCP 只暴露读取当前结果状态的接口，不自动执行计算。
-
-### 最小曲率行车线
-
-车辆参数下的“路线算法”可选择最短行车线或最小曲率行车线。后者最小化整圈 `∮ κ² ds`，以实际弧长加权，沿用同样的转角、整车包络和边界约束。它允许路程增加，也不保证最大曲率或圈时最小；两种算法都是局部数值优化。
-
-切换算法后重新计算，每次仅显示当前结果。最小曲率路线保存为 `min_curvature_path.csv`，最短路线仍为 `shortest_path.csv`；列格式相同。点击“生成路点速度”可为当前路线生成 `speed_waypoints.csv`。结果、PNG、报告和 ZIP 仍保存在本应用的 `outputs` 中，每次计算有独立目录。报告包含算法名与曲率平方积分。
+For more detail, see the guides in [`docs/`](docs/).
