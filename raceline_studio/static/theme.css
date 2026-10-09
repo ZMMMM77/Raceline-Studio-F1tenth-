@@ -1,0 +1,279 @@
+/* Shared presentation for the explorer, editor and canvas controls.
+   Layout and canvas dimensions remain in style.css. */
+:root {
+  --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  --ui-text: #d7e3f0;
+  --ui-label: #b4c5d8;
+  --ui-muted: #91a5be;
+  --ui-panel: #101b2c;
+  --ui-surface: #19283d;
+  --ui-hover: #22364d;
+  --ui-pressed: #152437;
+  --ui-field: #132236;
+  --ui-border: #344961;
+  --ui-accent: #50dbc1;
+  --ui-selected: #203f43;
+  --ui-radius: 6px;
+  --ui-duration: 140ms;
+  --ink: var(--ui-text);
+  --muted: var(--ui-muted);
+  --line: #293c52;
+}
+
+body {
+  font-family: var(--ui-font);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ui-text);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select, textarea, summary { font-family: inherit; }
+header, .explorer.remote-panel, .inspector, .edit-mode-tabs { background: var(--ui-panel); }
+.explorer.remote-panel, .inspector { scrollbar-width: thin; scrollbar-color: #40536a transparent; }
+.brand strong { font-weight: 650; color: var(--ui-accent); }
+.brand strong span { color: var(--ui-text); font-weight: 450; }
+.brand small, .header-right .local, .explorer-tag { color: var(--ui-muted); font-size: 10px; }
+.explorer-title, .inspector .section-title h2, .explorer .section-title h2,
+.explorer .results h2, .workspace > .velocity-chart h2 { font-size: 13px; font-weight: 600; color: var(--ui-text); }
+.explorer-section { font-size: 11px; font-weight: 600; letter-spacing: 0; color: var(--ui-muted); }
+:is(.explorer.remote-panel, .inspector) label { font-size: 12px; font-weight: 400; color: var(--ui-label); line-height: 1.5; }
+:is(.explorer.remote-panel, .inspector, .workspace) .hint,
+.explorer.remote-panel :is(.remote-note, .file-row small, .export-list small),
+.density-endpoints, .density-setting output, #csvDetection, #speedSelectionCount {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--ui-muted);
+  font-weight: 400;
+}
+.density-setting output { color: var(--ui-accent); }
+
+/* Common button states. Color denotes action hierarchy, not sidebar location. */
+:is(.explorer.remote-panel, .inspector, header, .workspace) button,
+.explorer.remote-panel label.upload {
+  min-height: 32px;
+  padding: 7px 9px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  box-shadow: none;
+  filter: none;
+  transition: background-color var(--ui-duration), border-color var(--ui-duration), color var(--ui-duration), box-shadow var(--ui-duration), transform 80ms;
+}
+:is(.explorer.remote-panel, .inspector, header, .workspace) button:hover:not(:disabled),
+.explorer.remote-panel label.upload:hover {
+  background: var(--ui-hover);
+  border-color: #658296;
+  color: #eef6ff;
+  filter: none;
+}
+:is(.explorer.remote-panel, .inspector, header, .workspace) button:active:not(:disabled),
+.explorer.remote-panel label.upload:active {
+  background: var(--ui-pressed);
+  border-color: var(--ui-accent);
+  box-shadow: inset 0 1px 3px #0004;
+  transform: translateY(1px);
+}
+:is(.explorer.remote-panel, .inspector, header, .workspace) button.primary {
+  min-height: 36px;
+  background: var(--ui-accent);
+  border-color: var(--ui-accent);
+  color: #102d2a;
+  font-weight: 600;
+  justify-content: center;
+  gap: 8px;
+}
+:is(.explorer.remote-panel, .inspector, header, .workspace) button.primary:hover:not(:disabled) {
+  background: #78e7d2;
+  border-color: #78e7d2;
+  color: #102d2a;
+}
+:is(.explorer.remote-panel, .inspector, header, .workspace) button.primary:active:not(:disabled) {
+  background: #38bea7;
+  border-color: #38bea7;
+}
+:is(.explorer.remote-panel, .inspector, header, .workspace) button.subtle,
+.explorer.remote-panel .explorer-toolbar button {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ui-label);
+}
+:is(.explorer.remote-panel, .inspector, header, .workspace) button.subtle:hover:not(:disabled),
+.explorer.remote-panel .explorer-toolbar button:hover:not(:disabled) {
+  background: var(--ui-surface);
+  border-color: var(--ui-border);
+  color: var(--ui-text);
+}
+:is(.explorer.remote-panel, .inspector, header, .workspace) button:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
+  box-shadow: none;
+}
+:is(.explorer.remote-panel, .inspector) .edit-actions { gap: 6px; align-items: stretch; }
+.edit-actions button { min-width: 0; overflow-wrap: normal; }
+.inspector .velocity-controls .edit-actions button { font-size: 11px; padding-inline: 4px; }
+.inspector .velocity-controls .edit-actions:has(#speedSelectionCount) button { flex: 0 0 auto; padding-inline: 7px; }
+#speedSelectionCount { flex: 1; min-width: 0; white-space: normal; }
+.inspector .two-col > label { display: flex; flex-direction: column; justify-content: space-between; }
+.explorer.remote-panel label.upload { border-style: dashed; }
+.explorer.remote-panel label.upload span { color: var(--ui-accent); font-size: 15px; }
+.explorer.remote-panel .export-list button { text-align: left; }
+.explorer.remote-panel .export-list b { color: var(--ui-muted); }
+
+/* Tabs and file selection share the same persistent selected state. */
+.explorer.remote-panel .tabs { background: #0c1727; border-radius: var(--ui-radius); }
+:is(.explorer.remote-panel, .inspector) :is(.tabs, .edit-mode-tabs) button {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ui-muted);
+}
+:is(.explorer.remote-panel, .inspector) :is(.tabs, .edit-mode-tabs) button[aria-selected=true],
+.inspector button[aria-pressed=true] {
+  background: var(--ui-selected);
+  border-color: #438b83;
+  color: #a5f4e2;
+  box-shadow: none;
+}
+:is(.explorer.remote-panel, .inspector) :is(.tabs, .edit-mode-tabs) button[aria-selected=true]:hover {
+  background: #284d50;
+  border-color: var(--ui-accent);
+  color: #c8fff3;
+}
+.explorer.remote-panel .remote-entry {
+  min-height: 30px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: var(--ui-radius);
+  font-size: 12px;
+}
+.explorer.remote-panel .remote-entry.selected {
+  background: var(--ui-selected);
+  color: #a5f4e2;
+  box-shadow: inset 2px 0 var(--ui-accent);
+}
+.explorer.remote-panel .remote-entry.selected:hover { background: #284d50; }
+
+/* Consistent field typography, borders and focus feedback. */
+:is(.explorer.remote-panel, .inspector, .workspace) :is(input:not([type]), input[type=text], input[type=password], input[type=number], select, textarea) {
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: var(--ui-field);
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  box-shadow: none;
+  transition: border-color var(--ui-duration), background-color var(--ui-duration), box-shadow var(--ui-duration);
+}
+:is(.explorer.remote-panel, .inspector, .workspace) :is(input, select, textarea):hover:not(:disabled) { border-color: #658296; }
+:is(.explorer.remote-panel, .inspector, .workspace) :is(input, select, textarea):focus {
+  border-color: var(--ui-accent);
+  outline: none;
+  box-shadow: 0 0 0 2px #50dbc126;
+}
+:is(.explorer.remote-panel, .inspector) input::placeholder,
+.explorer.remote-panel textarea::placeholder { color: #8298b0; opacity: 1; }
+:is(.explorer.remote-panel, .inspector) :is(input, select, textarea):disabled { opacity: .45; cursor: not-allowed; }
+.explorer.remote-panel .output-label textarea { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+
+/* Range controls use the same track and thumb in both editing modes. */
+:is(.explorer.remote-panel, .inspector) input[type=range] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: block;
+  width: 100%;
+  height: 24px;
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  accent-color: var(--ui-accent);
+}
+input[type=range]::-webkit-slider-runnable-track { height: 4px; background: #40566d; border-radius: 2px; }
+input[type=range]::-moz-range-track { height: 4px; background: #40566d; border-radius: 2px; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border: 2px solid #102d2a; border-radius: 50%; background: var(--ui-accent); box-shadow: 0 0 0 1px #50dbc155; transition: box-shadow var(--ui-duration); }
+input[type=range]::-moz-range-thumb { width: 10px; height: 10px; border: 2px solid #102d2a; border-radius: 50%; background: var(--ui-accent); box-shadow: 0 0 0 1px #50dbc155; transition: box-shadow var(--ui-duration); }
+input[type=range]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 4px #50dbc126; }
+input[type=range]:hover::-moz-range-thumb { box-shadow: 0 0 0 4px #50dbc126; }
+input[type=range]:active::-webkit-slider-thumb { box-shadow: 0 0 0 5px #50dbc13d; }
+input[type=range]:active::-moz-range-thumb { box-shadow: 0 0 0 5px #50dbc13d; }
+:is(.explorer.remote-panel, .inspector, .workspace) input[type=checkbox] { width: 13px; height: 13px; flex: 0 0 13px; margin: 0; padding: 0; accent-color: var(--ui-accent); cursor: pointer; }
+.check { align-items: baseline; gap: 7px; cursor: pointer; }
+.legend label { cursor: pointer; }
+
+/* Collapsible groups keep the same visual hierarchy and disclosure feedback. */
+.explorer.remote-panel :is(.connection-settings, .tool-group, .advanced-settings) {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius);
+  background: #111f32;
+  box-shadow: none;
+}
+.explorer.remote-panel summary {
+  min-height: 34px;
+  padding: 9px 10px;
+  gap: 8px;
+  background: var(--ui-surface);
+  color: var(--ui-label);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+  list-style: none;
+  transition: background-color var(--ui-duration), color var(--ui-duration);
+}
+.explorer.remote-panel summary::-webkit-details-marker { display: none; }
+.explorer.remote-panel summary::after {
+  content: '›';
+  display: inline-block;
+  flex-shrink: 0;
+  color: var(--ui-muted);
+  transform: rotate(0deg);
+  transition: transform var(--ui-duration), color var(--ui-duration);
+}
+.explorer.remote-panel details[open] > summary { color: var(--ui-text); }
+.explorer.remote-panel details[open] > summary::after { transform: rotate(90deg); color: var(--ui-accent); }
+.explorer.remote-panel summary:hover { background: var(--ui-hover); color: #eef6ff; }
+.explorer.remote-panel summary:active { background: var(--ui-pressed); }
+.explorer.remote-panel :is(.tool-group, .connection-settings) > summary { font-weight: 600; }
+
+/* Smaller controls retain the existing map toolbar and language-switch footprint. */
+.workspace .plot-toolbar button, .inspector .language-switch button {
+  min-height: 24px;
+  padding: 2px 7px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.workspace .background-picker { color: var(--ui-muted); background: var(--ui-panel); border-color: var(--line); }
+.workspace .background-picker :is(label, select), .workspace .legend label { font-size: 11px; }
+.workspace .background-picker select { min-height: 20px; height: 20px; margin: 0; padding: 0 5px; line-height: 18px; }
+.workspace .plot-toolbar { background: #101b2cf5; border-color: var(--line); }
+.workspace .plot-footer, .workspace > #message { color: var(--ui-muted); font-size: 11px; line-height: 1.5; }
+.workspace > .velocity-chart { background: var(--ui-panel); border-color: var(--line); }
+.explorer.remote-panel :is(.derived, .result-state, .save-summary) { border-radius: var(--ui-radius); font-size: 11px; line-height: 1.55; }
+.explorer.remote-panel :is(.derived, .result-state) { background: var(--ui-surface); border-color: var(--ui-border); color: var(--ui-label); }
+.explorer.remote-panel :is(.derived b, .checks .ok) { color: var(--ui-accent); }
+.explorer.remote-panel #remoteStatus { font-size: 12px; color: var(--ui-label); }
+.explorer.remote-panel #remoteMessage { font-size: 11px; color: #94dacb; }
+.workspace > #message.error, .explorer.remote-panel #remoteMessage.error, .inspector .error { color: #ffb2a4; }
+
+/* Keyboard focus is visible on buttons, upload labels and disclosure controls. */
+:is(.explorer.remote-panel, .inspector, header, .workspace) :is(button, summary, label.upload, input[type=range], input[type=checkbox]):focus-visible {
+  outline: 2px solid var(--ui-accent);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  :is(.explorer.remote-panel, .inspector, header, .workspace) button:active:not(:disabled),
+  .explorer.remote-panel label.upload:active { transform: none; }
+}

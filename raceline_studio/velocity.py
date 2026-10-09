@@ -43,9 +43,85 @@ def calculate(data):
     return dict(points=xy.tolist(),ratio=ratio.tolist(),speed=v.tolist(),friction=mu.tolist(),s=np.r_[0,np.cumsum(ds[:-1])].tolist(),heading=np.arctan2(d[:,1],d[:,0]).tolist(),curvature=k.tolist(),acceleration=((np.roll(v,-1)**2-v**2)/(2*ds)).tolist(),length=float(ds.sum()),lap_time=float(np.sum(ds/np.maximum((v+np.roll(v,-1))/2,.1))),parameters=p)
 
 
+def smooth_velocity(data):
+    """Local transition smoothing with exact user speed anchors; no re-profiling.
+
+    Detect acceleration/slope breaks on the closed polyline, then solve a
+    distance-weighted diffusion problem only inside compact neighborhoods.
+    Fixed outside samples are Dirichlet boundaries, not optimization variables.
+    """
+    from scipy.sparse import diags, coo_matrix
+    from scipy.sparse.linalg import spsolve
+    if 'ratio' not in data:
+        raise PlanningError('请先生成速度，再平滑当前速度。')
+    current=calculate(data)
+    speed=np.asarray(current['speed']); energy=speed**2
+    p=current['parameters']; n=len(speed)
+    pinned=data.get('pinned_indices')
+    if not isinstance(pinned,list) or not pinned:
+        raise PlanningError('请先调整一段速度，或选中需要保持速度不变的点，再平滑衔接。')
+    if any(isinstance(i,bool) or not isinstance(i,int) or not 0<=i<n for i in pinned):
+        raise PlanningError('固定速度点索引无效。')
+    locked=np.zeros(n,dtype=bool);locked[pinned]=True
+    ds=np.diff(np.r_[current['s'],current['length']])
+    arc=np.asarray(current['s']); length=current['length']
+    acceleration=(np.roll(energy,-1)-energy)/(2*ds)
+    limits=np.where(acceleration>=0,p['a_max'],p['a_brake'])
+    steep=np.abs(acceleration)>limits+1e-7
+    # A sudden change between neighboring slopes is also a transition to soften.
+    breaks=np.abs(acceleration-np.roll(acceleration,1))>max(p['a_max'],p['a_brake'])+1e-7
+    # Only transitions bordering a user-pinned segment may be smoothed.
+    seeds=np.flatnonzero((locked != np.roll(locked,-1)) & (steep|breaks|np.roll(breaks,-1)))
+    weight=np.zeros(n)
+    for i in seeds:
+        center=(arc[i]+ds[i]/2)%length if steep[i] else arc[i]
+        needed=abs(np.roll(energy,-1)[i]-energy[i])/(2*limits[i])
+        radius=min(length/8,max(1.,min(12.,needed*1.8)))
+        distance=np.abs((arc-center+length/2)%length-length/2)
+        # Smooth compact support: no influence outside this radius.
+        taper=np.maximum(0.,1-(distance/radius)**2)**2
+        taper[distance>=radius]=0
+        weight=np.maximum(weight,radius*radius*.5*taper)
+    active=(weight>1e-12)&~locked
+    updated=energy.copy()
+    if active.any():
+        # Finite-volume diffusion respects actual segment length and unequal density.
+        edge_weight=(weight+np.roll(weight,-1))/2/ds
+        edge_weight[~(active|np.roll(active,-1))]=0
+        mass=(ds+np.roll(ds,1))/2
+        idx=np.arange(n); nxt=(idx+1)%n
+        lap=coo_matrix((np.r_[edge_weight,edge_weight,-edge_weight,-edge_weight],
+                       (np.r_[idx,nxt,idx,nxt],np.r_[idx,nxt,nxt,idx])),shape=(n,n)).tocsr()
+        matrix=diags(mass)+lap
+        fixed=~active
+        rhs=mass[active]*energy[active]-matrix[active][:,fixed]@energy[fixed]
+        updated[active]=spsolve(matrix[active][:,active],rhs)
+        # Numerical roundoff only: the diffusion operator is range preserving.
+        updated[active]=np.clip(updated[active],energy.min(),energy.max())
+    new_speed=np.sqrt(updated)
+    ratios=np.asarray(current['ratio']).copy()
+    if p['v_max']>p['v_min']:
+        ratios[active]=np.clip((new_speed[active]-p['v_min'])/(p['v_max']-p['v_min']),0,1)
+    result=calculate(dict(data,ratio=ratios.tolist()))
+    final=np.asarray(result['speed'])
+    remaining=np.sum((np.asarray(result['acceleration'])>p['a_max']+1e-7)|
+                     (np.asarray(result['acceleration']) < -p['a_brake']-1e-7))
+    result['smoothing']={'changed_points':int(np.sum(np.abs(final-speed)>1e-8)),
+                         'raised_points':int(np.sum(final-speed>1e-8)),
+                         'lowered_points':int(np.sum(speed-final>1e-8)),
+                         'affected_indices':np.flatnonzero(active).tolist(),
+                         'remaining_steep_edges':int(remaining),
+                         'local_only':True,'pinned_indices':np.flatnonzero(locked).tolist(),
+                         'warning':('衔接空间不足或固定段内部仍有突变；已保留固定点速度，仅调整可用邻点。' if remaining else '')}
+    return result
+
+
 def install_velocity(app,directory,json_write,pack):
     @app.post('/api/velocity/profile')
     def profile():return jsonify(calculate(request.get_json() or {}))
+
+    @app.post('/api/velocity/smooth')
+    def smooth():return jsonify(smooth_velocity(request.get_json() or {}))
 
     @app.post('/api/velocity/export')
     def export():

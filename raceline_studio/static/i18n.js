@@ -1,6 +1,25 @@
 /* One interface, two languages. Keys are the original Chinese UI copy. */
 (() => {
-  const rows = `远程赛道工作台 | Remote track workspace
+  const rows = `手动调速点保持不变，仅调整两端邻点。已有路线可选中要保留的速度段后平滑；可撤销。 | Keep manually edited speeds fixed; adjust only neighboring transitions. For an existing route, select the segment to preserve first. Undo is available.
+已保留固定段速度，仅平滑两端衔接。可用“撤销调速”恢复。 | Pinned speeds preserved; only neighboring transitions smoothed. Use Undo speed edit to restore.
+请先调整一段速度，或选中需要保持速度不变的点，再平滑衔接。 | Adjust a speed segment, or select the points whose speeds must stay fixed, before smoothing.
+固定速度点索引无效。 | Invalid pinned speed indices.
+衔接空间不足或固定段内部仍有突变；已保留固定点速度，仅调整可用邻点。 | Transition space is insufficient or a pinned segment still contains a jump. Pinned speeds were preserved; only available neighbors were adjusted.
+仅平滑速度变化过陡处及前后邻点，可升速或降速；远处速度不变，可撤销。 | Smooth only steep transitions and nearby points, allowing increases or decreases. Distant speeds stay unchanged; undo is available.
+已局部平滑速度过渡，远处速度未改变。可用“撤销调速”恢复。 | Local speed transitions smoothed; distant speeds unchanged. Use Undo speed edit to restore.
+未发现过陡的速度变化，速度保持不变。 | No steep speed transitions found; speeds unchanged.
+已局部平滑，但仍有过陡速度段；为保留远处速度，未扩大到整圈。 | Local smoothing completed, but some steep segments remain. Distant speeds were preserved instead of changing the whole loop.
+选中点实际速度倍率 | Selected-point speed multiplier (m/s)
+已完成平滑，但最低速度仍高于部分弯道限速；请降低最低速度。平滑不代表抓地校验通过。 | Smoothing completed, but minimum speed still exceeds some corner limits. Lower minimum speed; smoothing does not certify grip.
+平滑已完成，速度曲线已更新。可用“撤销调速”恢复。 | Smoothing completed and the speed curve updated. Use Undo speed edit to restore.
+当前速度没有需要降低的突变，未修改速度。 | No speed spikes needed reducing; speeds are unchanged.
+一键平滑速度 | Smooth speed
+只降低突变速度，让慢点前后平缓衔接；按保守的加减速与弯道限速处理，可撤销。不能保证实车不打滑。 | Reduce speed spikes and ease transitions around slow points, using conservative acceleration, braking and corner limits. Undo is available. This cannot guarantee tire grip.
+正在平滑速度… | Smoothing speed…
+速度已平滑：保留慢点、降低突变，并施加保守的加减速与弯道限速。可用“撤销调速”恢复。 | Speed smoothed: slow points retained, spikes reduced, conservative acceleration, braking and corner limits applied. Use Undo speed edits to restore.
+请先生成速度，再平滑当前速度。 | Generate a speed profile before smoothing it.
+当前最小速度高于部分弯道的保守限速，请降低最小速度后重试。 | Minimum speed exceeds the conservative corner limit. Lower minimum speed and try again.
+远程赛道工作台 | Remote track workspace
 载入示例赛道 | Load sample track
 文件 | Files
 未连接 · 设置 SSH | Disconnected · Configure SSH
@@ -536,6 +555,7 @@ CSV 参考线与原始地图不对齐或净空不足，请检查 resolution、or
     if (exact.has(source)) return exact.get(source);
     // Dynamic captions and messages retain numbers, file names and paths.
     const dynamic = [
+      [/^已按实际速度调整 (\d+) 个选中点，并限制在最低与最高速度之间。连续点击会累乘；未选点不变。$/, m => `Scaled the actual speeds of ${m[1]} selected points, clamped to minimum and maximum speed. Repeated clicks compound; unselected points are unchanged.`],
       [/^已调整 (\d+) 点的速度比例。手动调整可能超出加速、制动或抓地限制；重算整圈会覆盖手动比例。$/, m => `Adjusted speed ratios for ${m[1]} points. Manual changes may exceed acceleration, braking or grip limits; recalculating the loop overwrites manual ratios.`],
       [/^已设置 (\d+) 点的摩擦系数，并重新计算整圈速度。$/, m => `Set friction for ${m[1]} points and recalculated full-loop speed.`],
       [/^已选中 (\d+) 个点。拖动其中一个点可整体移动。$/, m => `${m[1]} points selected. Drag one to move the whole group.`],
@@ -591,7 +611,7 @@ CSV 参考线与原始地图不对齐或净空不足，请检查 resolution、or
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
       if (walker.currentNode.nodeType === Node.TEXT_NODE) {
-        if (!walker.currentNode.parentElement?.closest('.file-name')) syncText(walker.currentNode);
+        if (!walker.currentNode.parentElement?.closest('.file-name, [data-no-translate]')) syncText(walker.currentNode);
       }
       else syncAttributes(walker.currentNode);
     }

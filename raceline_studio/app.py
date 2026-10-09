@@ -283,4 +283,7 @@ install_velocity(app, directory, json_write, pack)
 from raceline_studio.remote import install_remote
 REMOTE = install_remote(app, ROOT)
 
+from raceline_studio.terminal import install_terminals
+TERMINALS = install_terminals(app, REMOTE)
+
 if __name__=='__main__':app.run(host='127.0.0.1',port=8766,debug=False,threaded=True)

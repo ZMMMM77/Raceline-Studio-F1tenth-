@@ -1,0 +1,46 @@
+/* Keep the pre-existing chart footprint: terminal and curve share one dock. */
+.workspace>.terminal-dock {height:var(--dock-height); min-height:0; overflow:hidden; display:flex!important; flex-direction:column; position:relative; box-sizing:border-box;}
+.workspace>.terminal-dock>.dock-heading {display:flex; flex:none; flex-wrap:nowrap; flex-direction:row; align-items:center; height:20px; gap:8px; min-width:0;}
+.workspace .dock-tabs {display:flex; flex:none; gap:8px; height:20px;}
+.workspace .terminal-dock button {min-height:18px; padding:0 6px; font-size:10px; line-height:18px; margin:0; white-space:nowrap;}
+.workspace .dock-tabs button {border:0; border-radius:0; border-bottom:2px solid transparent; background:transparent; color:var(--ui-muted); font-size:12px; padding:0 0 2px;}
+.workspace .dock-tabs button[aria-selected=true] {border-bottom-color:var(--ui-accent); color:var(--ui-text);}
+.workspace #terminalToolbar {display:flex; align-items:center; gap:6px; margin-left:auto; min-width:0;}
+#terminalProfile {overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100px; font-size:10px; color:var(--ui-muted);}
+.workspace #terminalStartAll {background:var(--ui-accent); color:#102d2a; border-color:var(--ui-accent);}
+.workspace #dockSpeedPane {display:block; flex:1; min-height:0;}
+.workspace #dockTerminalPane {display:flex; flex-direction:column; flex:1; min-height:0; gap:0; align-items:stretch;}
+.terminal-dock [hidden] {display:none!important;}
+.workspace #speedCaption {white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;}
+.terminal-session-bar {display:flex; gap:5px; height:22px; flex:none; align-items:center;}
+#terminalSessions {display:flex; gap:4px; min-width:0; overflow:auto; flex:1; scrollbar-width:thin; font-size:10px;}
+.workspace #terminalSessions button {border-color:transparent; background:transparent; color:var(--ui-muted);}
+.workspace #terminalSessions button[aria-selected=true] {background:var(--ui-selected); border-color:var(--ui-accent); color:var(--ui-text);}
+.workspace #terminalSessions .session-running {color:#80c6f0;}
+.workspace #terminalSessions .session-ready_log {color:var(--ui-accent);}
+.workspace #terminalSessions .session-failed {color:#ffad92;}
+#terminalNotice {font-size:10px; line-height:14px; color:#b6c9da; flex:none; white-space:nowrap; overflow:auto;}
+#terminalOutput {font:11px/15px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#d0dfef; background:#0b1523; margin:0; padding:0 5px; flex:1; min-height:0; overflow:auto; white-space:pre; scrollbar-width:thin; user-select:text;}
+#terminalInputForm {display:flex; height:18px; flex:none; gap:5px; align-items:center; color:var(--ui-accent);}
+#terminalInput {background:transparent; color:var(--ui-text); border:0; border-bottom:1px solid #344961; min-width:0; flex:1; height:17px; font:11px ui-monospace,monospace; padding:0;}
+.workspace>.terminal-dock.expanded {position:fixed; inset:12vh 8vw; height:auto; z-index:100; box-shadow:0 0 0 100vmax #0009; padding:12px 16px;}
+#terminalConfig {width:min(680px,92vw); max-height:85vh; border:1px solid var(--ui-border); border-radius:9px; color:var(--ui-text); background:var(--ui-panel); padding:20px; font:12px/1.5 var(--ui-font); color-scheme:dark;}
+#terminalConfig::backdrop {background:#0009;}
+#terminalConfig h2 {font-size:15px; color:var(--ui-text);}
+.terminal-dialog-header, #terminalConfig footer, .terminal-config-top {display:flex; justify-content:space-between; align-items:center; gap:10px;}
+#terminalConfig p {color:var(--ui-muted); font-size:11px;}
+#terminalConfig input:not([type=checkbox]), #terminalConfig textarea {display:block; width:100%; margin:4px 0 10px; background:var(--ui-field); border:1px solid var(--ui-border); color:var(--ui-text); border-radius:5px; padding:6px 8px; font:12px/1.5 var(--ui-font);}
+#terminalConfig textarea {font-family:ui-monospace,monospace; resize:vertical;}
+#terminalConfig fieldset {border:1px solid var(--ui-border); border-radius:6px; padding:10px; margin:12px 0; min-width:0;}
+#terminalConfig legend {color:var(--ui-accent); padding:0 5px;}
+#terminalConfig button {background:var(--ui-surface); border:1px solid var(--ui-border); color:var(--ui-text); border-radius:6px; padding:5px 9px; font-size:12px;}
+#terminalConfig button:hover:not(:disabled) {background:var(--ui-hover);}
+#terminalConfigSave {background:var(--ui-accent)!important; color:#102d2a!important;}
+#terminalConfig label {color:var(--ui-label); font-size:12px;}
+.terminal-config-fields {display:grid; grid-template-columns:1fr 2fr; gap:10px; margin-top:8px;}
+#terminalConfigError {color:#ffad92; white-space:pre-wrap;}
+@media(max-width:1100px){#terminalProfile{display:none}.workspace .dock-tabs button{font-size:10px}.workspace .dock-tabs{gap:7px}.workspace #terminalToolbar{gap:3px}}
+
+.terminal-session-bar #terminalNotice {max-width:32%; flex:0 1 auto; scrollbar-width:none;}
+#terminalOutput .log-error {color:#ff9d91;}
+#terminalOutput .log-warning {color:#edc46b;}
