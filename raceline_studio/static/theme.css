@@ -248,7 +248,7 @@ input[type=range]:active::-moz-range-thumb { box-shadow: 0 0 0 5px #50dbc13d; }
 .explorer.remote-panel :is(.tool-group, .connection-settings) > summary { font-weight: 600; }
 
 /* Smaller controls retain the existing map toolbar and language-switch footprint. */
-.workspace .plot-toolbar button, .inspector .language-switch button {
+.workspace .plot-toolbar button, header .language-switch button {
   min-height: 24px;
   padding: 2px 7px;
   font-size: 11px;
@@ -276,4 +276,23 @@ input[type=range]:active::-moz-range-thumb { box-shadow: 0 0 0 5px #50dbc13d; }
   *, *::before, *::after { transition: none !important; animation: none !important; }
   :is(.explorer.remote-panel, .inspector, header, .workspace) button:active:not(:disabled),
   .explorer.remote-panel label.upload:active { transform: none; }
+}
+
+/* Compact global language control and aligned editor navigation. */
+header .language-switch { margin: 0; flex-shrink: 0; }
+header .language-switch button { min-width: 64px; min-height: 28px; }
+.inspector { padding-top: 12px; }
+.inspector .edit-mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  top: -12px;
+  padding: 0 0 10px;
+  border-bottom: 1px solid var(--line);
+}
+.inspector .edit-mode-tabs button { width: 100%; margin: 0; min-height: 34px; padding: 6px 8px; }
+.inspector > .waypoint-panel, .inspector > .velocity-controls { border-top: 0; margin-top: 10px; padding-top: 0; }
+@media (max-width: 650px) {
+  .header-right { gap: 6px; }
+  header .language-switch button { min-width: 58px; padding-inline: 6px; }
 }

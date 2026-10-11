@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Raceline Studio · 远程赛道工作台</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23151f30'/%3E%3Cpath d='M8 23V9h10q8 0 5 7-2 3-8 2l9 7M9 16h10' fill='none' stroke='%233dd6bb' stroke-width='3'/%3E%3C/svg%3E"><link rel="stylesheet" href="/static/style.css"><link rel="stylesheet" href="/static/theme.css"><link rel="stylesheet" href="/static/terminal.css"></head>
 <body>
-<header><div class="brand"><span class="brand-icon">R</span><div><strong>RACELINE <span>STUDIO</span></strong><small>远程赛道工作台</small></div></div><div class="header-right"><span class="local">REMOTE WORKSPACE / JETSON</span><button id="demo" class="subtle">载入示例赛道</button></div></header>
+<header><div class="brand"><span class="brand-icon">R</span><div><strong>RACELINE <span>STUDIO</span></strong><small>远程赛道工作台</small></div></div><div class="header-right"><span class="local">REMOTE WORKSPACE / JETSON</span><button id="demo" class="subtle">载入示例赛道</button><div class="language-switch"><button id="languageToggle" type="button" title="Switch to English" aria-label="Switch to English">English</button></div></div></header>
 <main><aside class="explorer remote-panel">
 <div class="explorer-title"><span>文件</span><span class="explorer-tag">JETSON / SSH</span></div>
 <details class="connection-settings"><summary><span class="remote-dot" id="remoteDot"></span><span id="remoteStatus">未连接 · 设置 SSH</span></summary>
@@ -60,7 +60,7 @@
 <div class="curve-panel velocity-chart"><div><h2>速度曲线</h2><span id="speedCaption" class="hint">生成后显示直道与弯道目标速度</span></div><canvas id="speedCanvas" aria-label="沿路径的目标速度"></canvas></div>
 <div id="message" role="status" aria-live="polite">连接 Jetson，从左侧文件树打开地图或 CSV。</div>
 </section>
-<aside class="inspector"><div class="language-switch"><button id="languageToggle" type="button" title="Switch to English" aria-label="Switch to English">English</button></div><div class="edit-mode-tabs" role="tablist" aria-label="编辑栏目"><button id="pointMode" role="tab" aria-selected="true">1. 点</button><button id="speedMode" role="tab" aria-selected="false">2. 速度</button></div><details class="tool-group waypoint-panel" open><summary>① Waypoint 编辑</summary>
+<aside class="inspector"><div class="edit-mode-tabs" role="tablist" aria-label="编辑栏目"><button id="pointMode" role="tab" aria-selected="true">1. 点</button><button id="speedMode" role="tab" aria-selected="false">2. 速度</button></div><details class="tool-group waypoint-panel" open><summary>① Waypoint 编辑</summary>
 <label>编辑来源<select id="editSource"><option value="result">生成的优化轨迹</option><option value="center">生成的中心线</option><option value="preview">当前预览的 CSV</option></select></label>
 <button id="editBegin" class="secondary full">编辑这条路线</button><button id="editResume" class="subtle full" hidden>继续上次编辑</button>
 <div id="editControls" hidden>
