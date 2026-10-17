@@ -10,12 +10,48 @@
   function settings(){return{host:$('sshHost').value.trim(),username:$('sshUser').value.trim(),port:Number($('sshPort').value),password:$('sshPassword').value,auto_connect:$('sshAuto').checked,directory:remoteRoots[0]?.path||'~'};}
   async function connect(){message('正在连接 Jetson…');const d=settings();let result;try{result=await ssh('connect',d);}catch(e){if(!e.data?.fingerprint)throw e;if(!window.i18n.confirm(`首次连接 ${d.host}，请核对主机指纹：\n${e.data.fingerprint}\n\n信任此主机？`)){message('已取消连接。');return;}result=await ssh('connect',{...d,fingerprint:e.data.fingerprint});}finally{$('sshPassword').value='';}status(result);await buildTree();}
   async function open(path){if(state.busy)throw Error('请等待当前计算完成。');message('正在打开 '+path.split('/').pop()+'…');const d=await files('preview',{path,format:$('previewFormat').value});await openFilePreview(d);lastPath=path;if(d.kind==='route')$('remoteTarget').value=path;document.querySelectorAll('.remote-entry').forEach(b=>b.classList.toggle('selected',b.dataset.path===path));message(d.note);}
+  let treeId=0;
+  function treeIcon(kind){
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('viewBox','0 0 20 20');svg.setAttribute('aria-hidden','true');
+    svg.classList.add('tree-icon',`tree-icon-${kind}`);
+    const path=document.createElementNS(svg.namespaceURI,'path');
+    path.setAttribute('d',kind==='folder'?'M2.5 5.5h6l1.5 2h7.5v9h-15z M2.5 7.5v-4h5l2 2h8v2':kind==='image'?'M4 2.5h8l4 4v11H4z M12 2.5v4h4 M5.5 14l3-3 2.5 2 2-2 2 3 M7 7.5h.01':kind==='config'?'M4 2.5h8l4 4v11H4z M12 2.5v4h4 M7 10h6 M7 13h6':'M4 2.5h8l4 4v11H4z M12 2.5v4h4 M7 10h6 M7 13h6 M9.5 9v6');
+    svg.append(path);return svg;
+  }
   function branch(name,path,isDirectory,depth=0){
-    const item=document.createElement('div'),b=document.createElement('button');b.className='remote-entry';b.dataset.path=path;b.title=path;b.style.paddingLeft=(7+depth*13)+'px';b.classList.toggle('selected',path===lastPath);
-    const icon=document.createElement('span');icon.className='file-icon';icon.textContent=isDirectory?'▸':/\.(csv|txt)$/i.test(name)?'CSV':/\.ya?ml$/i.test(name)?'YML':'IMG';
-    const label=document.createElement('span');label.className='file-name';label.textContent=name;b.append(icon,label);item.append(b);
-    if(isDirectory){const children=document.createElement('div');children.hidden=true;item.append(children);b.setAttribute('aria-expanded','false');let loaded=false;
-      async function toggle(){if(!children.hidden){children.hidden=true;icon.textContent='▸';b.setAttribute('aria-expanded','false');return;}if(!loaded){const d=await files('list',{path});for(const e of d.entries){if(!e.directory&&!/\.(csv|txt|yaml|yml|png|pgm|jpg|jpeg)$/i.test(e.name))continue;children.append(branch(e.name,e.path||d.path.replace(/\/$/,'')+'/'+e.name,e.directory,depth+1).item);}if(!children.childElementCount){const empty=document.createElement('p');empty.className='tree-empty';empty.textContent='没有地图或路线文件';children.append(empty);}loaded=true;}children.hidden=false;icon.textContent='▾';b.setAttribute('aria-expanded','true');}
+    const item=document.createElement('div'),b=document.createElement('button');
+    item.className='tree-node';item.style.setProperty('--tree-depth',depth);
+    b.className='remote-entry';b.type='button';b.dataset.path=path;b.title=path;
+    b.classList.toggle('selected',path===lastPath);b.id=`remote-tree-${++treeId}`;
+    const guides=document.createElement('span');guides.className='tree-guides';guides.setAttribute('aria-hidden','true');
+    for(let i=0;i<depth;i++)guides.append(document.createElement('i'));
+    const arrow=document.createElement('span');arrow.className='tree-chevron';arrow.setAttribute('aria-hidden','true');
+    arrow.textContent=isDirectory?'›':'';
+    const kind=isDirectory?'folder':/\.(csv|txt)$/i.test(name)?'table':/\.ya?ml$/i.test(name)?'config':'image';
+    const label=document.createElement('span');label.className='file-name';label.textContent=name;
+    b.append(guides,arrow,treeIcon(kind),label);item.append(b);
+    item.classList.toggle('tree-root',depth===0);
+    if(isDirectory){
+      item.classList.add('tree-directory');
+      const children=document.createElement('div');children.className='tree-children';children.hidden=true;
+      children.id=`${b.id}-children`;children.setAttribute('role','group');children.setAttribute('aria-labelledby',b.id);
+      item.append(children);b.setAttribute('aria-controls',children.id);b.setAttribute('aria-expanded','false');let loaded=false;
+      async function toggle(){
+        if(!children.hidden){children.hidden=true;b.setAttribute('aria-expanded','false');return;}
+        if(!loaded){
+          b.setAttribute('aria-busy','true');
+          try{
+            const d=await files('list',{path});
+            const entries=d.entries.filter(e=>e.directory||/\.(csv|txt|yaml|yml|png|pgm|jpg|jpeg)$/i.test(e.name));
+            entries.sort((a,b)=>Number(b.directory)-Number(a.directory)||a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'}));
+            for(const e of entries)children.append(branch(e.name,e.path||d.path.replace(/\/$/,'')+'/'+e.name,e.directory,depth+1).item);
+            if(!children.childElementCount){const empty=document.createElement('p');empty.className='tree-empty';empty.style.setProperty('--tree-depth',depth+1);empty.textContent='没有地图或路线文件';children.append(empty);}
+            loaded=true;
+          }finally{b.removeAttribute('aria-busy');}
+        }
+        children.hidden=false;b.setAttribute('aria-expanded','true');
+      }
       b.onclick=()=>run(toggle);return{item,expand:toggle};
     }
     b.onclick=()=>run(()=>open(path));return{item};
