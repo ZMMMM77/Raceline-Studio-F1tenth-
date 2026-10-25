@@ -109,7 +109,7 @@ def pack(path):
 
 def public(track):
     ident=track['id'];m=track['map']
-    return {'id':ident,'name':track['name'],'boundary_mode':track['boundary_mode'],'diagnostics':track['diagnostics'],'source_kind':'csv' if track['source_route'] is not None else 'centerline','center':track['center'].tolist(),'widths':track['widths'].tolist(),'length':arc(track['center'])[1],'warnings':track['warnings'],'output_dir':str(track['dir']),'map':{'url':f'/outputs/{ident}/map.png','resolution':m.resolution,'origin':m.origin.tolist(),'width':m.image.width,'height':m.image.height} if m else None,'reference_image':f'/outputs/{ident}/reference_image.png' if track['reference_image'] else None,'files':{'center':f'/outputs/{ident}/centerline.csv','png':f'/outputs/{ident}/centerline.png','zip':f'/outputs/{ident}/results.zip'}}
+    return {'id':ident,'name':track['name'],'boundary_mode':track['boundary_mode'],'diagnostics':track['diagnostics'],'remote_source':track.get('remote_source'),'source_kind':'csv' if track['source_route'] is not None else 'centerline','center':track['center'].tolist(),'widths':track['widths'].tolist(),'length':arc(track['center'])[1],'warnings':track['warnings'],'output_dir':str(track['dir']),'map':{'url':f'/outputs/{ident}/map.png','resolution':m.resolution,'origin':m.origin.tolist(),'width':m.image.width,'height':m.image.height} if m else None,'reference_image':f'/outputs/{ident}/reference_image.png' if track['reference_image'] else None,'files':{'center':f'/outputs/{ident}/centerline.csv','png':f'/outputs/{ident}/centerline.png','zip':f'/outputs/{ident}/results.zip'}}
 
 def register(name,p,w,m,warnings,reference_image=None,source_route=None,boundary_mode='csv'):
     if has_crossing(p):raise PlanningError('参考路径自交。请提供一条按顺序排列、不自交的闭合赛道。')
@@ -134,10 +134,58 @@ def demo():
     p,w=resample(p,np.full((len(p),2),1.8),spacing=.2)
     return jsonify(public(register('示例 · Harbor Loop',p,w,None,['内置合成赛道，不代表真实车辆能力。'])))
 
+def remote_import_files(form):
+    """Snapshot SSH files under the connection lock, then use the local importer."""
+    import posixpath
+    import yaml
+    from werkzeug.datastructures import FileStorage
+    from paramiko import SSHException
+    from raceline_studio.remote import RemoteError
+    try:
+        with REMOTE.lock:
+            if not REMOTE.status()['connected']:
+                raise PlanningError('SSH 未连接，请先连接 Jetson。')
+            try: expected=json.loads(form.get('remote_identity','null'))
+            except (ValueError,TypeError): expected=None
+            if expected != REMOTE.identity:
+                raise PlanningError('SSH 连接已改变，请重新打开远程 CSV 后导入。')
+            path=REMOTE.path(form.get('remote_csv'))
+            if Path(path).suffix.lower() not in ('.csv','.txt'):
+                raise PlanningError('请选择远程 CSV/TXT 路线文件。')
+            def file(path):
+                return FileStorage(io.BytesIO(REMOTE.read(path)),filename=posixpath.basename(path))
+            csvfile=file(path);image=yamlfile=None
+            yaml_path=form.get('remote_yaml');image_path=form.get('remote_image')
+            if yaml_path:
+                yaml_path=REMOTE.path(yaml_path)
+                raw=REMOTE.read(yaml_path)
+                try:
+                    config=yaml.safe_load(raw)
+                    image_name=config.get('image') if isinstance(config,dict) else None
+                    if not isinstance(image_name,str) or not image_name: raise ValueError()
+                except (ValueError,TypeError,yaml.YAMLError,UnicodeError):
+                    raise PlanningError('地图 YAML 需要有效的 image、resolution 和 origin: [x,y,yaw]。')
+                image_path=REMOTE.path(image_name if image_name.startswith(('/','~/')) else posixpath.join(posixpath.dirname(yaml_path),image_name))
+                image=file(image_path)
+                yamlfile=FileStorage(io.BytesIO(raw),filename=posixpath.basename(yaml_path))
+            elif image_path:
+                image_path=REMOTE.path(image_path);image=file(image_path)
+            source=dict(path=path,identity=dict(REMOTE.identity),yaml_path=yaml_path or None,image_path=image_path or None)
+            return csvfile,image,yamlfile,source
+    except RemoteError as e:
+        raise PlanningError(e.message) from e
+    except (OSError,EOFError,SSHException) as e:
+        raise PlanningError('无法读取远程文件，请检查 SSH 连接、路径及读取权限。') from e
+
 @app.post('/api/import')
 def import_track():
     mode=request.form.get('mode','csv');reverse=request.form.get('reverse')=='true'
-    csvfile=request.files.get('csv');image=request.files.get('image');yamlfile=request.files.get('yaml')
+    source=None
+    if request.form.get('source')=='remote':
+        mode='csv'
+        csvfile,image,yamlfile,source=remote_import_files(request.form)
+    else:
+        csvfile=request.files.get('csv');image=request.files.get('image');yamlfile=request.files.get('yaml')
     if yamlfile and not image:raise PlanningError('已选择 YAML，还需要选择它对应的地图图片。')
     m=None;warnings=[];reference_image=None;source_route=None;boundary_mode='csv'
     boundary_source=request.form.get('boundary_source','auto')
@@ -185,7 +233,13 @@ def import_track():
     if reverse:
         p=p[::-1].copy();w=w[::-1,::-1].copy()
         if source_route is not None:source_route=source_route[::-1].copy()
-    return jsonify(public(register(name,p,w,m,warnings,reference_image,source_route,boundary_mode)))
+    track=register(name,p,w,m,warnings,reference_image,source_route,boundary_mode)
+    if source:
+        track['remote_source']=source
+        report_path=track['dir']/'import_report.json'
+        report=json.loads(report_path.read_text());report['remote_source']=source
+        json_write(report_path,report);pack(track['dir'])
+    return jsonify(public(track))
 
 @app.post('/api/optimize')
 def start():
@@ -207,7 +261,7 @@ def start():
             route_filename='min_curvature_path.csv' if result['metrics']['algorithm']=='min_curvature' else 'shortest_path.csv'
             np.savetxt(path/route_filename,np.c_[result['route'],result['s'],result['heading'],result['curvature'],result['steering']],delimiter=',',header='x_m,y_m,s_m,psi_rad,kappa_radpm,steering_rad',fmt='%.7f')
             plot(track,result,path/'raceline_comparison.png')
-            json_write(path/'report.json',{'track':track['name'],'source_dir':str(track['dir']),'parameters':data['parameters'],'metrics':result['metrics'],'warnings':track['warnings'],'heading_convention':'atan2(dy,dx), zero = +x, CCW positive; NOT TUM north-zero convention','route_format':'comma separated, x/y first, comment header, no duplicated closing point; speed profile generated separately','boundary_model':('original raster SDF only; ray endpoints are not walls' if track['boundary_mode']=='map' else 'CSV corridor and optional original raster')+'; circumscribed disk plus margin; dense validation','import_diagnostics':track['diagnostics'],'limitations':['Validated feasible numerical route. Early stopping does not imply solver convergence or global optimality.','Kinematic curvature constraint only; speed must be planned separately.','Raster correctness depends on resolution/origin/thresholds and supplied map.','Curvature is densely sampled, not an analytic interval certificate.']})
+            json_write(path/'report.json',{'track':track['name'],'source_dir':str(track['dir']),'remote_source':track.get('remote_source'),'parameters':data['parameters'],'metrics':result['metrics'],'warnings':track['warnings'],'heading_convention':'atan2(dy,dx), zero = +x, CCW positive; NOT TUM north-zero convention','route_format':'comma separated, x/y first, comment header, no duplicated closing point; speed profile generated separately','boundary_model':('original raster SDF only; ray endpoints are not walls' if track['boundary_mode']=='map' else 'CSV corridor and optional original raster')+'; circumscribed disk plus margin; dense validation','import_diagnostics':track['diagnostics'],'limitations':['Validated feasible numerical route. Early stopping does not imply solver convergence or global optimality.','Kinematic curvature constraint only; speed must be planned separately.','Raster correctness depends on resolution/origin/thresholds and supplied map.','Curvature is densely sampled, not an analytic interval certificate.']})
             pack(path)
             result.update(result_id=result_id,output_dir=str(path),files={'center':f'/outputs/{result_id}/centerline.csv','route':f'/outputs/{result_id}/{route_filename}','png':f'/outputs/{result_id}/raceline_comparison.png','zip':f'/outputs/{result_id}/results.zip'})
             RESULTS[result_id]=dict(track=track,result=result,path=path)

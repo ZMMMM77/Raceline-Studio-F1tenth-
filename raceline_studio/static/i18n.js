@@ -1,6 +1,19 @@
 /* One interface, two languages. Keys are the original Chinese UI copy. */
 (() => {
-  const rows = `手动调速点保持不变，仅调整两端邻点。已有路线可选中要保留的速度段后平滑；可撤销。 | Keep manually edited speeds fixed; adjust only neighboring transitions. For an existing route, select the segment to preserve first. Undo is available.
+  const rows = `当前远程 CSV | Current remote CSV
+导入当前远程 CSV 用于规划 | Import current remote CSV for planning
+读取原文件几何，速度重新生成。无宽度且未附地图时，请在高级导入设置填写单侧宽度。 | Read the original geometry and regenerate speed. If widths and a map are missing, enter half-width in Advanced import settings.
+附带当前远程地图与 YAML。 | Includes the current remote map and YAML.
+当前背景图缺少 YAML，仅作参考。 | The current background has no YAML and is used only for reference.
+未附地图：使用 CSV 宽度，或在高级导入设置填写单侧宽度。 | No map: use CSV widths or enter half-width in Advanced import settings.
+SSH 连接已改变，请重新打开远程 CSV 后导入。 | The SSH connection changed. Reopen the remote CSV before importing.
+请选择远程 CSV/TXT 路线文件。 | Select a remote CSV/TXT route file.
+无法读取远程文件，请检查 SSH 连接、路径及读取权限。 | Cannot read remote files. Check SSH, paths and read permissions.
+请先从文件树打开远程 CSV。 | Open a remote CSV from the file tree first.
+正在将远程 CSV 导入规划… | Importing the remote CSV for planning…
+远程 CSV 已导入规划，可设置车辆约束并计算最小曲率行车线。 | Remote CSV imported. Set vehicle constraints and calculate the minimum-curvature line.
+请先将当前远程 CSV 导入规划。 | Import the current remote CSV for planning first.
+手动调速点保持不变，仅调整两端邻点。已有路线可选中要保留的速度段后平滑；可撤销。 | Keep manually edited speeds fixed; adjust only neighboring transitions. For an existing route, select the segment to preserve first. Undo is available.
 已保留固定段速度，仅平滑两端衔接。可用“撤销调速”恢复。 | Pinned speeds preserved; only neighboring transitions smoothed. Use Undo speed edit to restore.
 请先调整一段速度，或选中需要保持速度不变的点，再平滑衔接。 | Adjust a speed segment, or select the points whose speeds must stay fixed, before smoothing.
 固定速度点索引无效。 | Invalid pinned speed indices.

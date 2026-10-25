@@ -8,7 +8,7 @@ async function openFilePreview(data) {
     await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('地图图片无法显示。'));img.src=data.map.url;});
     next.map={...data.map,image:img,path:data.path};
     if(!data.map.resolution)next.route=null;
-  } else next.route={points:data.points,path:data.path,count:data.count,format:data.format,importedVelocity:data.velocity,boundaries:data.boundaries||null};
+  } else next.route={points:data.points,path:data.path,count:data.count,format:data.format,importedVelocity:data.velocity,boundaries:data.boundaries||null,csv_format:data.csv_format||'auto',remote_identity:data.remote_identity};
   state.preview=next;state.scale=1;state.pan=[0,0];document.body.classList.add('file-preview-mode');
   $('emptyState').hidden=true;$('trackName').textContent=data.name;$('stageBadge').textContent='文件预览';$('stageBadge').className='badge';
   updatePreviewInfo();draw();say(data.note);
@@ -22,6 +22,7 @@ function updatePreviewInfo(){
   if(p.map?.resolution)rows.push(['分辨率',p.map.resolution+' m/px'],['地图原点',p.map.origin.join(', ')]);
   if(p.route&&p.map&&!p.map.resolution)rows.push(['提示','地图缺少 YAML，当前仅显示米制路线。打开对应 YAML 后可叠加。']);
   for(const [key,value]of rows){const item=document.createElement('div'),label=document.createElement('small'),text=document.createElement('p');label.textContent=key;text.textContent=value;item.append(label,text);$('fileInfo').append(item);}
+  window.remotePlanning?.sync();
   $('clearPreviewMap').hidden=!p.map;$('backToPlanning').hidden=!state.track;
   $('plotInfo').textContent=p.route?`${p.route.count} 个 waypoints · 米制坐标 · 只读预览`:p.map?.resolution?`${p.map.width} × ${p.map.height} · ${p.map.resolution} m/px`:'图片预览 · 像素坐标';
 }
@@ -53,4 +54,4 @@ function drawFilePreview(ctx,w,h,p=state.preview){
   return {scale,cx,cy,ox,oy,screen,bounds:{minx,maxx,miny,maxy}};
 }
 $('clearPreviewMap').onclick=()=>{if(!state.preview)return;if(state.preview.route){state.preview.map=null;updatePreviewInfo();draw();}else{state.preview=null;document.body.classList.remove('file-preview-mode');$('clearPreviewMap').hidden=true;$('fileInfo').textContent='从左侧打开地图或路线。';if(state.track){$('trackName').textContent=state.track.name;$('stageBadge').textContent='规划工作区';draw();}else{$('emptyState').hidden=false;$('trackName').textContent='打开地图或路线';$('stageBadge').textContent='等待打开';draw();}}};
-$('backToPlanning').onclick=()=>{state.preview=null;document.body.classList.remove('file-preview-mode');$('backToPlanning').hidden=true;$('clearPreviewMap').hidden=true;$('trackName').textContent=state.track?.name||'打开地图或路线';$('stageBadge').textContent='规划工作区';draw();};
+$('backToPlanning').onclick=()=>{state.preview=null;document.body.classList.remove('file-preview-mode');$('backToPlanning').hidden=true;$('clearPreviewMap').hidden=true;$('trackName').textContent=state.track?.name||'打开地图或路线';$('stageBadge').textContent='规划工作区';draw();window.remotePlanning?.sync();};

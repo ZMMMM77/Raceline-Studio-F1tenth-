@@ -14,6 +14,12 @@
 <div id="remoteMessage" role="status" aria-live="polite">等待连接 Jetson。</div>
 <details class="tool-group"><summary>规划与导入</summary><div class="controls">
 <div class="section-title"><span class="step">01</span><h2>导入赛道</h2></div>
+<div id="remotePlanningSource" class="remote-planning-source" hidden>
+<small>当前远程 CSV</small><p id="remotePlanningPath" data-no-translate></p>
+<p id="remotePlanningMap" class="hint"></p>
+<button id="importRemote" class="secondary full" type="button">导入当前远程 CSV 用于规划</button>
+<p class="hint">读取原文件几何，速度重新生成。无宽度且未附地图时，请在高级导入设置填写单侧宽度。</p>
+</div>
 <div class="tabs" role="tablist" aria-label="导入方式"><button id="csvTab" role="tab" aria-selected="true" class="active">已有 CSV</button><button id="mapTab" role="tab" aria-selected="false">SLAM 地图</button></div>
 <p id="importHelp" class="hint">中心线 CSV 可单独使用，也可附 PNG。附 YAML 后可按米制坐标叠加并检查墙壁。</p>
 <div id="csvUpload" class="file-row"><label class="upload" role="button" tabindex="0" for="csvFile"><span>＋</span> 选择路线 CSV</label><input id="csvFile" type="file" accept=".csv,.txt" hidden><small id="csvName">尚未选择</small></div>

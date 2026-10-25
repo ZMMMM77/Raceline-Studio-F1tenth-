@@ -367,3 +367,10 @@ header .language-switch button { min-width: 64px; min-height: 28px; }
   .explorer.remote-panel { max-height: 620px; }
   .explorer.remote-panel #remoteFiles { flex-basis: 260px; }
 }
+
+/* Promote an SSH preview into the same constrained planning workflow. */
+.remote-planning-source { padding: 10px; margin: 8px 0 12px; background: #172b3a; border: 1px solid #36575e; border-radius: var(--ui-radius); }
+.remote-planning-source > small { color: var(--ui-accent); font-size: 11px; }
+.explorer .remote-planning-source > p[data-no-translate] { margin: 4px 0; color: var(--ui-text); font-size: 11px; overflow-wrap: anywhere; }
+.explorer .remote-planning-source > .hint { margin: 6px 0; }
+.explorer .remote-planning-source > button { margin: 6px 0; }

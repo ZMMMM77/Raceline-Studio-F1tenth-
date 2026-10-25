@@ -32,3 +32,12 @@ SSH 密码仍保存在 macOS 钥匙串，配置 JSON 不包含密码。首次连
 ## 验证
 
 39 项自动测试通过，包括地图/YAML 匹配、PGM 转 PNG、CSV 预览、路径配置即时更新及原有规划/SSH 回归测试。浏览器使用模拟 Jetson 文件验证文件树展开和地图路线叠加；本次未连接真实小车。
+
+
+## SSH CSV planning
+
+Open a CSV from the SSH file tree, then expand Planning & import and click Import current remote CSV for planning. The current remote map and YAML are included when available. Without a map, use CSV widths or enter half-width in Advanced import settings. Set the vehicle constraints, select minimum curvature or shortest path, and calculate. Export the generated CSV from Results & export.
+
+This uses the same closed-loop validation, resampling, constraints and optimizer as local import. Speed is regenerated. Source files remain unchanged until Save to Jetson is explicitly used. Reopening another preview requires importing that file before optimizing it.
+
+The remote import regression tests cover local/remote equivalence, missing widths, relative YAML image paths, changed SSH identity, invalid loops, and optimization followed by CSV download. The browser workflow was also verified using the current remote Levine CSV and map.
