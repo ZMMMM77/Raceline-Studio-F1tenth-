@@ -65,6 +65,10 @@
   }
   function syncPlanning(){
     const route=state.preview?.route,box=$('remotePlanningSource');
+    const map=state.preview?.map;
+    $('remoteMapSource').hidden=!map?.yaml_path;
+    if(map?.yaml_path){$('remoteMapPath').textContent=map.yaml_path;$('remoteMapPath').title=map.yaml_path;}
+    $('importRemoteMap').disabled=!connected||!map?.yaml_path||state.busy||working;
     box.hidden=!route;
     if(route){
       $('remotePlanningPath').textContent=route.path;
@@ -75,6 +79,23 @@
     $('optimize').disabled=state.busy||!state.track||!!state.preview;
   }
   window.remotePlanning={sync:syncPlanning};
+  $('importRemoteMap').onclick=()=>run(async()=>{
+    const map=state.preview?.map;
+    if(!map?.yaml_path)throw Error('请选择地图 YAML，系统会读取其中指定的 PGM/PNG。');
+    if(state.busy)return;
+    if(map.remote_identity!==identity)throw Error('SSH 连接已改变，请重新打开远程地图后导入。');
+    busy(true,'正在导入…');message('正在清理地图并提取平滑中心线…');
+    try{
+      const form=new FormData();
+      for(const [key,value] of Object.entries({source:'remote',mode:'map',remote_yaml:map.yaml_path,remote_identity:identity,reverse:$('reverse').checked,cleanup_map:$('cleanupMap').checked,cleanup_hole_area:$('cleanupHoleArea').value,cleanup_gap_radius:$('cleanupGapRadius').value,map_smoothing:$('mapSmoothing').value}))form.append(key,value);
+      const data=await api('/api/import',{method:'POST',body:form});
+      await loadTrack(data);
+      message('地图中心线已生成，可继续设置车辆约束和优化路线。');
+      say(['地图中心线已生成，可继续设置车辆约束和优化路线。',...data.warnings].join('\n'));
+      $('vehicleSettings').open=true;
+    }catch(e){say(e.message,true);throw e;}
+    finally{busy(false);}
+  });
   $('importRemote').onclick=()=>run(async()=>{
     const route=state.preview?.route,map=state.preview?.map;
     if(!route)throw Error('请先从文件树打开远程 CSV。');

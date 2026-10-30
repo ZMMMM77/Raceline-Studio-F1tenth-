@@ -216,6 +216,7 @@ class MapData:
     sdf: np.ndarray
     rotation: np.ndarray
     extraction_free: object = None
+    extraction_track_free: object = None
     cleanup_info: object = None
 
     @classmethod
@@ -317,7 +318,8 @@ class MapData:
                                authority='original raster only; cleaned mask is for reference extraction')
         return mask
 
-    def extract(self,cleanup=True,hole_area=.01,gap_radius=.05):
+    def extract(self,cleanup=True,hole_area=.01,gap_radius=.05,smoothing=.28):
+        smoothing=positive(smoothing,'中心线平滑半径',low=0,high=1,inclusive=True)
         extraction=self.prepare_extraction(cleanup,hole_area,gap_radius)
         labels,num=ndi.label(extraction)
         objects=ndi.find_objects(labels)
@@ -334,6 +336,7 @@ class MapData:
         if not candidates:raise PlanningError('没有找到封闭的环形赛道。请检查墙壁缺口、未知区域；也可改用有序 CSV 指定路线。')
         if len(candidates)>1 and candidates[1][0]>.1*candidates[0][0]:raise PlanningError('地图包含多条独立闭环，无法确定目标赛道。请裁剪目标赛道并更新 YAML，或导入中心线 CSV。')
         mask=labels==candidates[0][1]
+        self.extraction_track_free=mask
         skel=skeletonize(mask)
         coords=np.argwhere(skel);lookup={tuple(v):i for i,v in enumerate(coords)}
         g=nx.Graph();g.add_nodes_from(range(len(coords)))
@@ -353,9 +356,19 @@ class MapData:
         area=np.sum(p[:,0]*np.roll(p[:,1],-1)-p[:,1]*np.roll(p[:,0],-1))
         if area<0:p=p[::-1]
         p=np.roll(p,-np.argmin(np.linalg.norm(p,axis=1)),axis=0)
-        p,_=resample(p,spacing=.2,smooth=.28)
-        if np.any(self.distance(p)<0):raise PlanningError('提取的中心线穿过障碍物，需改善地图或提供参考 CSV。')
-        return p,self.widths(p,cap=False)
+        # Only the extraction path is smoothed. Validate every connecting segment,
+        # including the closing seam, against the unchanged original raster.
+        for radius in dict.fromkeys([smoothing,smoothing/2,smoothing/4,0.]):
+            candidate,_=resample(p,spacing=.2,smooth=radius)
+            if has_crossing(candidate):continue
+            dense,_=resample(candidate,spacing=min(.02,self.resolution/2))
+            clearance=float(self.distance(dense).min())
+            if clearance<0:continue
+            self.cleanup_info.update(smoothing_requested_m=smoothing,smoothing_applied_m=radius,
+                                     validation_points=len(dense),min_centerline_clearance_m=clearance,
+                                     extraction_method='binary skeleton, closed-loop graph, periodic Gaussian smoothing')
+            return candidate,self.widths(candidate,cap=False)
+        raise PlanningError('提取的中心线穿过障碍物或自交，需改善地图或提供参考 CSV。')
 
 
 def has_crossing(p):

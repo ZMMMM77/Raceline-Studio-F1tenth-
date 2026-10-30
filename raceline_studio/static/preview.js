@@ -6,7 +6,7 @@ async function openFilePreview(data) {
   if(data.kind==='map') {
     const img=new Image();
     await new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('地图图片无法显示。'));img.src=data.map.url;});
-    next.map={...data.map,image:img,path:data.path};
+    next.map={...data.map,image:img,path:data.path,remote_identity:data.remote_identity};
     if(!data.map.resolution)next.route=null;
   } else next.route={points:data.points,path:data.path,count:data.count,format:data.format,importedVelocity:data.velocity,boundaries:data.boundaries||null,csv_format:data.csv_format||'auto',remote_identity:data.remote_identity};
   state.preview=next;state.scale=1;state.pan=[0,0];document.body.classList.add('file-preview-mode');

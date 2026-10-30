@@ -63,7 +63,7 @@ def save_center(track):
     np.savetxt(track['dir']/'centerline.csv',np.c_[track['center'],track['widths']],delimiter=',',header='x_m,y_m,w_tr_right_m,w_tr_left_m',fmt='%.7f')
     np.savetxt(track['dir']/'reference_path.csv',track['center'],delimiter=',',header='x_m,y_m',fmt='%.7f')
     plot(track,None,track['dir']/'centerline.png')
-    json_write(track['dir']/'import_report.json',{'name':track['name'],'warnings':track['warnings'],'diagnostics':track['diagnostics'],'boundary_mode':track['boundary_mode'],'length_m':arc(track['center'])[1],'centerline_columns':['x_m','y_m','w_tr_right_m','w_tr_left_m'],'closed_loop':'last point connects to first; no duplicated endpoint','map_origin':track['map'].origin.tolist() if track['map'] else None,'map_resolution':track['map'].resolution if track['map'] else None})
+    json_write(track['dir']/'import_report.json',{'name':track['name'],'warnings':track['warnings'],'diagnostics':track['diagnostics'],'preprocessing':track.get('preprocessing'),'boundary_mode':track['boundary_mode'],'length_m':arc(track['center'])[1],'centerline_columns':['x_m','y_m','w_tr_right_m','w_tr_left_m'],'closed_loop':'last point connects to first; no duplicated endpoint','map_origin':track['map'].origin.tolist() if track['map'] else None,'map_resolution':track['map'].resolution if track['map'] else None})
 
 def plot(track,result,path):
     with PLOT_LOCK:
@@ -109,7 +109,7 @@ def pack(path):
 
 def public(track):
     ident=track['id'];m=track['map']
-    return {'id':ident,'name':track['name'],'boundary_mode':track['boundary_mode'],'diagnostics':track['diagnostics'],'remote_source':track.get('remote_source'),'source_kind':'csv' if track['source_route'] is not None else 'centerline','center':track['center'].tolist(),'widths':track['widths'].tolist(),'length':arc(track['center'])[1],'warnings':track['warnings'],'output_dir':str(track['dir']),'map':{'url':f'/outputs/{ident}/map.png','resolution':m.resolution,'origin':m.origin.tolist(),'width':m.image.width,'height':m.image.height} if m else None,'reference_image':f'/outputs/{ident}/reference_image.png' if track['reference_image'] else None,'files':{'center':f'/outputs/{ident}/centerline.csv','png':f'/outputs/{ident}/centerline.png','zip':f'/outputs/{ident}/results.zip'}}
+    return {'id':ident,'name':track['name'],'boundary_mode':track['boundary_mode'],'diagnostics':track['diagnostics'],'preprocessing':track.get('preprocessing'),'remote_source':track.get('remote_source'),'source_kind':'csv' if track['source_route'] is not None else 'centerline','center':track['center'].tolist(),'widths':track['widths'].tolist(),'length':arc(track['center'])[1],'warnings':track['warnings'],'output_dir':str(track['dir']),'map':{'url':f'/outputs/{ident}/map.png','resolution':m.resolution,'origin':m.origin.tolist(),'width':m.image.width,'height':m.image.height} if m else None,'reference_image':f'/outputs/{ident}/reference_image.png' if track['reference_image'] else None,'files':{'center':f'/outputs/{ident}/centerline.csv','png':f'/outputs/{ident}/centerline.png','zip':f'/outputs/{ident}/results.zip'}}
 
 def register(name,p,w,m,warnings,reference_image=None,source_route=None,boundary_mode='csv'):
     if has_crossing(p):raise PlanningError('参考路径自交。请提供一条按顺序排列、不自交的闭合赛道。')
@@ -122,7 +122,9 @@ def register(name,p,w,m,warnings,reference_image=None,source_route=None,boundary
     if m:
         m.image.save(path/'map.png')
         if m.extraction_free is not None:
-            Image.fromarray(np.where(m.extraction_free,254,0).astype(np.uint8)).save(path/'extraction_mask.png')
+            from raceline_studio.map_preprocessing import save_layers
+            layers=save_layers(m,path)
+            track['preprocessing']={key:f'/outputs/{ident}/{name}' for key,name in layers.items()}
     if reference_image is not None:reference_image.save(path/'reference_image.png')
     save_center(track);pack(path);TRACKS[ident]=track
     return track
@@ -148,13 +150,17 @@ def remote_import_files(form):
             try: expected=json.loads(form.get('remote_identity','null'))
             except (ValueError,TypeError): expected=None
             if expected != REMOTE.identity:
-                raise PlanningError('SSH 连接已改变，请重新打开远程 CSV 后导入。')
-            path=REMOTE.path(form.get('remote_csv'))
-            if Path(path).suffix.lower() not in ('.csv','.txt'):
+                raise PlanningError('SSH 连接已改变，请重新打开远程地图后导入。' if form.get('mode')=='map' else 'SSH 连接已改变，请重新打开远程 CSV 后导入。')
+            map_only=form.get('mode','csv')=='map'
+            path=REMOTE.path(form.get('remote_yaml') if map_only else form.get('remote_csv'))
+            if map_only:
+                if Path(path).suffix.lower() not in ('.yaml','.yml'):
+                    raise PlanningError('请选择地图 YAML，系统会读取其中指定的 PGM/PNG。')
+            elif Path(path).suffix.lower() not in ('.csv','.txt'):
                 raise PlanningError('请选择远程 CSV/TXT 路线文件。')
             def file(path):
                 return FileStorage(io.BytesIO(REMOTE.read(path)),filename=posixpath.basename(path))
-            csvfile=file(path);image=yamlfile=None
+            csvfile=None if map_only else file(path);image=yamlfile=None
             yaml_path=form.get('remote_yaml');image_path=form.get('remote_image')
             if yaml_path:
                 yaml_path=REMOTE.path(yaml_path)
@@ -182,7 +188,6 @@ def import_track():
     mode=request.form.get('mode','csv');reverse=request.form.get('reverse')=='true'
     source=None
     if request.form.get('source')=='remote':
-        mode='csv'
         csvfile,image,yamlfile,source=remote_import_files(request.form)
     else:
         csvfile=request.files.get('csv');image=request.files.get('image');yamlfile=request.files.get('yaml')
@@ -204,11 +209,15 @@ def import_track():
     if mode=='map':
         if not m:raise PlanningError('仅从 SLAM 地图提取中心线需要地图图片和 YAML，以确定米制比例与原点。')
         p,w=m.extract(cleanup=request.form.get('cleanup_map','true')!='false',
-                      hole_area=request.form.get('cleanup_hole_area',.01),gap_radius=request.form.get('cleanup_gap_radius',.05))
+                      hole_area=request.form.get('cleanup_hole_area',.01),gap_radius=request.form.get('cleanup_gap_radius',.05),
+                      smoothing=request.form.get('map_smoothing',.28))
         boundary_mode='map';name=Path(image.filename).stem+' · 地图提取'
         info=m.cleanup_info
         warnings.append(f'提取副本填补 {info["filled_hole_pixels"]} 个小孔像素、补缝封闭 {info["closed_free_pixels"]} 个空闲像素；原始地图用于全部净空检查。')
         warnings.append('默认逆时针；宽度射线仅限制搜索范围，不连接成虚构墙壁。仅支持单一封闭赛道。')
+        warnings.append('可在背景图菜单查看清理副本、清理改动和距离场；原始地图继续用于约束检查。')
+        if info['smoothing_applied_m'] < info['smoothing_requested_m']:
+            warnings.append('已自动降低中心线平滑强度，避免穿墙或自交。')
     elif mode=='csv':
         if not csvfile:raise PlanningError('请选择中心线 CSV 文件。')
         p,w,path_only=parse_csv(csvfile.read(), request.form.get("csv_format", "auto"));name=Path(csvfile.filename).stem
@@ -324,7 +333,7 @@ def job(job):
 def download(ident,filename):
     if not (len(ident)==24 and all(c.isalnum() or c=='_' for c in ident)):
         return jsonify(error='无效结果目录。'),404
-    allowed={'pure_pursuit.csv','mppi.csv','edited_waypoints.csv','min_curvature_path.csv','centerline.csv','reference_path.csv','extraction_mask.png','shortest_path.csv','speed_waypoints.csv','centerline.png','raceline_comparison.png','speed_profile.png','map.png','reference_image.png','results.zip','report.json','import_report.json'}
+    allowed={'pure_pursuit.csv','mppi.csv','edited_waypoints.csv','min_curvature_path.csv','centerline.csv','reference_path.csv','extraction_mask.png','extraction_changes.png','distance_field.png','shortest_path.csv','speed_waypoints.csv','centerline.png','raceline_comparison.png','speed_profile.png','map.png','reference_image.png','results.zip','report.json','import_report.json'}
     if filename not in allowed:return jsonify(error='文件不存在。'),404
     return send_from_directory(OUTPUT/ident,filename,as_attachment=request.args.get('download')=='1')
 

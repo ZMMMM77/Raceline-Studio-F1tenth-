@@ -20,6 +20,11 @@
 <button id="importRemote" class="secondary full" type="button">导入当前远程 CSV 用于规划</button>
 <p class="hint">读取原文件几何，速度重新生成。无宽度且未附地图时，请在高级导入设置填写单侧宽度。</p>
 </div>
+<div id="remoteMapSource" class="remote-planning-source" hidden>
+<small>当前远程 SLAM 地图</small><p id="remoteMapPath" data-no-translate></p>
+<button id="importRemoteMap" class="secondary full" type="button">从此地图生成中心线</button>
+<p class="hint">读取 YAML 与配套 PGM/PNG。清理和平滑参数在高级导入设置中调整。</p>
+</div>
 <div class="tabs" role="tablist" aria-label="导入方式"><button id="csvTab" role="tab" aria-selected="true" class="active">已有 CSV</button><button id="mapTab" role="tab" aria-selected="false">SLAM 地图</button></div>
 <p id="importHelp" class="hint">中心线 CSV 可单独使用，也可附 PNG。附 YAML 后可按米制坐标叠加并检查墙壁。</p>
 <div id="csvUpload" class="file-row"><label class="upload" role="button" tabindex="0" for="csvFile"><span>＋</span> 选择路线 CSV</label><input id="csvFile" type="file" accept=".csv,.txt" hidden><small id="csvName">尚未选择</small></div>
@@ -32,6 +37,7 @@
 <p class="hint">已有 CSV 保留路线形状，仅按弧长重采样。地图模式不把宽度射线端点连接成墙壁；优化分为可行性修复和路线优化。</p>
 <label class="check"><input id="cleanupMap" type="checkbox" checked>清理地图提取副本（仅自动提取参考线时）</label>
 <div class="two-col"><label>填补小孔最大面积 / m²<input id="cleanupHoleArea" type="number" value="0.01" min="0" max="0.1" step="0.0025"></label><label>补缝半径 / m<input id="cleanupGapRadius" type="number" value="0.05" min="0" max="0.15" step="0.01"></label></div>
+<label>地图中心线平滑半径 / m<input id="mapSmoothing" type="number" value="0.28" min="0" max="1" step="0.02"></label><p class="hint">仅用于地图生成中心线；0 关闭平滑。超出原图边界时自动减弱。</p>
 <p class="hint">清理仅用于稳定参考线提取，原始地图始终参与净空检查。填 0 可关闭对应处理；复杂岔路仍建议提供参考 CSV。</p>
 </details>
 <label class="check reverse"><input id="reverse" type="checkbox">反转行驶方向</label>

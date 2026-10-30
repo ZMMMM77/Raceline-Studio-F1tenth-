@@ -1,6 +1,24 @@
 /* One interface, two languages. Keys are the original Chinese UI copy. */
 (() => {
-  const rows = `当前远程 CSV | Current remote CSV
+  const rows = `当前远程 SLAM 地图 | Current remote SLAM map
+从此地图生成中心线 | Generate centerline from this map
+读取 YAML 与配套 PGM/PNG。清理和平滑参数在高级导入设置中调整。 | Read YAML and its PGM/PNG. Adjust cleanup and smoothing in Advanced import settings.
+地图中心线平滑半径 / m | Map centerline smoothing radius / m
+仅用于地图生成中心线；0 关闭平滑。超出原图边界时自动减弱。 | Map extraction only; 0 disables smoothing. Automatically reduced if it crosses original map boundaries.
+请选择地图 YAML，系统会读取其中指定的 PGM/PNG。 | Select a map YAML; its referenced PGM/PNG will be read automatically.
+SSH 连接已改变，请重新打开远程地图后导入。 | The SSH connection changed. Reopen the remote map before importing.
+正在清理地图并提取平滑中心线… | Cleaning the map and extracting a smooth centerline…
+地图中心线已生成，可继续设置车辆约束和优化路线。 | Map centerline ready. Set vehicle constraints and optimize the route.
+可在背景图菜单查看清理副本、清理改动和距离场；原始地图继续用于约束检查。 | View cleanup, changes and distance field in the background menu. Constraints still use the original map.
+已自动降低中心线平滑强度，避免穿墙或自交。 | Centerline smoothing was reduced to avoid obstacles or self-intersections.
+提取的中心线穿过障碍物或自交，需改善地图或提供参考 CSV。 | The extracted centerline crosses obstacles or itself. Improve the map or provide a reference CSV.
+清理副本（坐标叠加） | Cleaned copy (map coordinates)
+清理改动（坐标叠加） | Cleanup changes (map coordinates)
+距离场（坐标叠加） | Distance field (map coordinates)
+绿色：填孔；橙色：补缝。原图仍用于约束。 | Green: filled holes. Orange: closed gaps. Constraints use the original map.
+紫色近墙，黄色远墙；清理副本的距离场。 | Purple: near walls. Yellow: farther away. Distance field of the cleaned copy.
+仅用于中心线提取；原图仍用于约束。 | For centerline extraction only; constraints use the original map.
+当前远程 CSV | Current remote CSV
 导入当前远程 CSV 用于规划 | Import current remote CSV for planning
 读取原文件几何，速度重新生成。无宽度且未附地图时，请在高级导入设置填写单侧宽度。 | Read the original geometry and regenerate speed. If widths and a map are missing, enter half-width in Advanced import settings.
 附带当前远程地图与 YAML。 | Includes the current remote map and YAML.
