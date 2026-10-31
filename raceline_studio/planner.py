@@ -525,6 +525,9 @@ def _validate_candidate(problem,x,spacing):
 
 
 def optimize(center,widths,map_data,parameters,progress=lambda *a:None):
+    if parameters.get('algorithm')=='min_curvature' and parameters.get('solver','iterative_qp')!='legacy':
+        from .iqp import optimize_iqp
+        return optimize_iqp(center,widths,map_data,parameters,progress)
     vehicle=vehicle_parameters(parameters)
     boundary_mode=parameters.get('boundary_mode','csv')
     if boundary_mode not in ('map','csv'):raise PlanningError('未知边界约束来源。')

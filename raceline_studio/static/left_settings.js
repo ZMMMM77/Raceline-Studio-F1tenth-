@@ -26,7 +26,7 @@
   };
   $('csvFile').addEventListener('change',()=>window.inspectCsv());$('csvFormat').addEventListener('change',()=>window.inspectCsv());
   // Explicitly saved preferences are separated by purpose; no paths, files or SSH credentials.
-  const groups={advancedImport:['csvFormat','previewFormat','fallbackWidth','boundarySource','cleanupMap','cleanupHoleArea','cleanupGapRadius','mapSmoothing','reverse'],vehicleSettings:['limitMode','angleType','steer','wheelTrack','radius','wheelbase','reference','carWidth','carLength','rearOverhang','margin'],advancedSolver:['nodes','spacing','maxRuntime','plateauWindow','plateauPercent']};
+  const groups={advancedImport:['csvFormat','previewFormat','fallbackWidth','boundarySource','cleanupMap','cleanupHoleArea','cleanupGapRadius','mapSmoothing','reverse'],vehicleSettings:['limitMode','angleType','steer','wheelTrack','radius','wheelbase','reference','carWidth','carLength','rearOverhang','margin'],advancedSolver:['curvatureSolver','nodes','spacing','maxRuntime','plateauWindow','plateauPercent']};
   for(const [id,ids] of Object.entries(groups)){
     const panel=$(id),button=document.createElement('button'),note=document.createElement('p');button.type='button';button.className='subtle full';button.textContent='保存本组设置';note.className='hint';note.setAttribute('role','status');panel.append(button,note);
     try{const saved=JSON.parse(localStorage.getItem('raceline.settings.'+id)||'null');if(saved){for(const key of ids){const el=$(key),value=saved[key];if(value===undefined)continue;if(el.type==='checkbox')el.checked=value===true;else if(typeof value==='string'){if(el.tagName!=='SELECT'||[...el.options].some(o=>o.value===value))el.value=value;}}note.textContent='已恢复本机保存的设置。';}}catch{}

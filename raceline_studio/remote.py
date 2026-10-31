@@ -34,6 +34,8 @@ class Remote:
         self.lock = threading.RLock()
         self.client = self.sftp = None
         self.identity = None
+        self.credentials = {}
+        self.warning = None
         atexit.register(self.close)
 
     def config(self):
@@ -41,8 +43,11 @@ class Remote:
         return json.loads(self.config_path.read_text())
 
     def close(self):
-        if self.sftp: self.sftp.close()
-        if self.client: self.client.close()
+        # A broken old channel must not prevent installing a new connection.
+        for connection in (self.sftp,self.client):
+            if connection:
+                try: connection.close()
+                except (OSError,paramiko.SSHException,EOFError): pass
         self.client = self.sftp = None
         self.identity = None
 
@@ -50,7 +55,13 @@ class Remote:
         from .remote_paths import read_paths
         config_paths = read_paths(self.root.parent)
         connected = bool(self.client and self.client.get_transport() and self.client.get_transport().is_active())
-        return dict(connected=connected, profile=self.config(), identity=self.identity if connected else None, directories=[dict(label='路线 / CSV', path=config_paths['waypoint_directory']), dict(label='地图 / MAPS', path=config_paths['map_directory'])])
+        return dict(connected=connected, profile=self.config(), identity=self.identity if connected else None, warning=self.warning, directories=[dict(label='路线 / CSV', path=config_paths['waypoint_directory']), dict(label='地图 / MAPS', path=config_paths['map_directory'])])
+
+    def health(self):
+        if self.status()['connected']:
+            try:self.sftp.stat('.')
+            except (OSError,paramiko.SSHException,EOFError):self.close()
+        return self.status()
 
     def connect(self, data):
         host = str(data.get('host', '')).strip()
@@ -60,8 +71,13 @@ class Remote:
         if not host or not user or any(c in host + user for c in '\r\n\x00') or not 1 <= port <= 65535:
             raise RemoteError('请填写主机地址、用户名及有效端口。')
         account = json.dumps([host, port, user], ensure_ascii=True)
-        password = data.get('password') or self.vault.get_password(SERVICE, account)
-        if not password: raise RemoteError('首次连接请填写密码。')
+        supplied=data.get('password')
+        password=supplied or self.credentials.get(account)
+        if not password:
+            try:password=self.vault.get_password(SERVICE,account)
+            except Exception:
+                raise RemoteError('无法读取已保存密码，请在密码栏填写密码后连接。',reason='keychain_read') from None
+        if not password: raise RemoteError('首次连接请填写密码。',reason='password_required')
         client = paramiko.SSHClient()
         client.load_system_host_keys()
         if self.hosts.exists(): client.load_host_keys(str(self.hosts))
@@ -82,7 +98,13 @@ class Remote:
             home = sftp.normalize('.')
             client.get_transport().set_keepalive(20)
             # Persist only after successful authentication and SFTP setup.
-            self.vault.set_password(SERVICE, account, password)
+            # Reusing a saved password does not need a Keychain write. A vault
+            # failure must not tear down an authenticated SSH/SFTP session.
+            self.warning=None
+            if supplied:
+                try:self.vault.set_password(SERVICE, account, password)
+                except Exception:
+                    self.warning='SSH 已连接，但密码未能保存到钥匙串；关闭 Studio 后可能需要重新输入。'
             client.save_host_keys(str(self.hosts))
             os.chmod(self.hosts, 0o600)
             profile = dict(host=host, port=port, username=user, directory=data.get('directory') or home,
@@ -97,6 +119,7 @@ class Remote:
         self.close()
         self.client, self.sftp = client, sftp
         self.identity = dict(host=host, port=port, username=user)
+        self.credentials[account]=password
         return self.status()
 
     def path(self, path):
@@ -161,7 +184,14 @@ def install_remote(app, root):
                 except paramiko.BadHostKeyException: return jsonify(error='主机指纹已改变，请核实 Jetson 身份后再连接。'), 409
                 except paramiko.AuthenticationException: return jsonify(error='SSH 登录失败，请检查用户名和密码。'), 401
                 except (OSError, paramiko.SSHException, EOFError): return jsonify(error='SSH/SFTP 操作失败：请检查网络、远程路径、权限及 SFTP 服务。'), 400
-                except Exception: return jsonify(error='连接设置失败，请检查 macOS 钥匙串是否允许此 Python 程序访问。'), 400
+                except Exception as error:
+                    # Record only exception type and source locations, never
+                    # request bodies, passwords, keychain values or locals.
+                    import traceback
+                    frames=traceback.extract_tb(error.__traceback__)
+                    locations=' -> '.join(f'{Path(frame.filename).name}:{frame.lineno} ({frame.name})' for frame in frames)
+                    app.logger.error('SSH request failed: %s; %s',type(error).__name__,locations)
+                    return jsonify(error='连接设置失败，请检查 macOS 钥匙串是否允许此 Python 程序访问。'), 400
         return guarded
     @bp.get('/status')
     @endpoint
@@ -169,6 +199,9 @@ def install_remote(app, root):
     @bp.post('/connect')
     @endpoint
     def connect(): return remote.connect(request.get_json() or {})
+    @bp.get('/health')
+    @endpoint
+    def health(): return remote.health()
     @bp.post('/disconnect')
     @endpoint
     def disconnect():
@@ -180,6 +213,7 @@ def install_remote(app, root):
         p = remote.config()
         if p:
             account = json.dumps([p['host'], p['port'], p['username']], ensure_ascii=True)
+            remote.credentials.pop(account,None)
             if remote.vault.get_password(SERVICE, account) is not None: remote.vault.delete_password(SERVICE, account)
             remote.config_path.unlink(missing_ok=True)
         remote.close()

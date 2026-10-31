@@ -1,6 +1,20 @@
 /* One interface, two languages. Keys are the original Chinese UI copy. */
 (() => {
-  const rows = `当前远程 SLAM 地图 | Current remote SLAM map
+  const rows = `最小曲率求解器 | Minimum-curvature solver
+迭代 QP＋车身轮廓（推荐） | Iterative QP + oriented footprint (recommended)
+原 SLSQP＋外接圆（对照） | Original SLSQP + enclosing circle (comparison)
+迭代 QP 多初值求解结束；已选择通过检查的最低曲率积分路线 | Iterative QP search finished; selected the validated candidate with the lowest curvature energy
+迭代 QP 检查随航向旋转的整车覆盖轮廓；原算法采用整车外接圆。 | Iterative QP checks the rotated vehicle footprint; the original solver uses an enclosing circle.
+迭代 QP 需要 OSQP，请按 requirements.txt 安装依赖。 | Iterative QP requires OSQP. Install dependencies from requirements.txt.
+迭代 QP 未找到通过车身轮廓、转向及闭环检查的路线。请核对地图和车辆参数，或增加计算时间。 | No validated iterative QP route found. Check the map and vehicle parameters, or increase the time limit.
+迭代 QP 的最终路线未通过加密检查，未导出。 | The final iterative QP route failed dense validation and was not exported.
+CSV 走廊宽度不足以容纳车宽及两侧安全余量。 | The CSV corridor is too narrow for the vehicle and both safety margins.
+CSV 宽度构成的边界自交，请提供地图与 YAML 或修正宽度。 | The CSV boundaries intersect themselves. Supply a map and YAML, or correct the widths.
+无法读取已保存密码，请在密码栏填写密码后连接。 | Cannot access the saved password. Enter it in the password field to connect.
+SSH 已连接，但密码未能保存到钥匙串；关闭 Studio 后可能需要重新输入。 | SSH connected, but the password could not be saved to Keychain. You may need to enter it after restarting Studio.
+SSH 已断开，正在自动重连… | SSH disconnected. Reconnecting automatically…
+SSH 已重新连接。 | SSH reconnected.
+当前远程 SLAM 地图 | Current remote SLAM map
 从此地图生成中心线 | Generate centerline from this map
 读取 YAML 与配套 PGM/PNG。清理和平滑参数在高级导入设置中调整。 | Read YAML and its PGM/PNG. Adjust cleanup and smoothing in Advanced import settings.
 地图中心线平滑半径 / m | Map centerline smoothing radius / m
@@ -586,6 +600,8 @@ CSV 参考线与原始地图不对齐或净空不足，请检查 resolution、or
     if (exact.has(source)) return exact.get(source);
     // Dynamic captions and messages retain numbers, file names and paths.
     const dynamic = [
+      [/^迭代 QP · 初值 (\d+)\/(\d+) · 第 (\d+) 轮 · 曲率平方积分 ([0-9.]+) m⁻¹ · 已用 (\d+)\/([0-9.]+) 秒$/, m => `Iterative QP · start ${m[1]}/${m[2]} · iteration ${m[3]} · curvature energy ${m[4]} m⁻¹ · ${m[5]}/${m[6]} s`],
+      [/^达到最大求解时间 ([0-9.]+) 秒；已选择通过检查的最佳 QP 路线$/, m => `Reached ${m[1]} s limit; selected the best validated QP route`],
       [/^已按实际速度调整 (\d+) 个选中点，并限制在最低与最高速度之间。连续点击会累乘；未选点不变。$/, m => `Scaled the actual speeds of ${m[1]} selected points, clamped to minimum and maximum speed. Repeated clicks compound; unselected points are unchanged.`],
       [/^已调整 (\d+) 点的速度比例。手动调整可能超出加速、制动或抓地限制；重算整圈会覆盖手动比例。$/, m => `Adjusted speed ratios for ${m[1]} points. Manual changes may exceed acceleration, braking or grip limits; recalculating the loop overwrites manual ratios.`],
       [/^已设置 (\d+) 点的摩擦系数，并重新计算整圈速度。$/, m => `Set friction for ${m[1]} points and recalculated full-loop speed.`],

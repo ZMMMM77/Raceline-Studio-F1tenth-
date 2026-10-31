@@ -1,14 +1,40 @@
 (() => {
   let working=false,connected=false,lastPath=null,remoteRoots=[],identity=null;
+  let reconnectAllowed=true,nextRetry=0,retryDelay=3000,checking=false,intent=0;
   function message(text,error=false){$('remoteMessage').textContent=text;$('remoteMessage').classList.toggle('error',error);}
-  async function requestJSON(prefix,action,body){const r=await fetch(prefix+action,{method:body===undefined?'GET':'POST',headers:{'X-Raceline-Local':'1','Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});const d=await r.json();if(!r.ok){const e=Error(d.error||'请求失败');e.data=d;throw e;}return d;}
+  async function requestJSON(prefix,action,body){const r=await fetch(prefix+action,{method:body===undefined?'GET':'POST',headers:{'X-Raceline-Local':'1','Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});const d=await r.json();if(!r.ok){const e=Error(d.error||'请求失败');e.data=d;e.httpStatus=r.status;throw e;}return d;}
   const ssh=(action,body)=>requestJSON('/api/remote/',action,body);
   const files=ssh;
   async function run(fn){if(working)return;working=true;const buttons=[...document.querySelectorAll('.connection-settings button,.remote-path button,.explorer-toolbar button,#remoteSave')],disabled=buttons.map(b=>b.disabled);buttons.forEach(b=>b.disabled=true);try{await fn();}catch(e){message(e.message,true);}finally{working=false;buttons.forEach((b,i)=>b.disabled=disabled[i]);syncPlanning();}}
   function resetPreview(){window.waypointEditor?.close();state.preview=null;lastPath=null;document.body.classList.remove('file-preview-mode');$('fileInfo').textContent='从左侧打开地图或路线。';$('clearPreviewMap').hidden=true;$('backToPlanning').hidden=true;$('emptyState').hidden=!!state.track;$('trackName').textContent=state.track?.name||'打开地图或路线';$('stageBadge').textContent=state.track?'规划工作区':'等待打开';draw();}
-  function status(d){connected=d.connected;remoteRoots=d.directories||[];$('remoteStatus').textContent=connected?`${d.identity.username}@${d.identity.host}`:'未连接 · 设置 SSH';$('remoteDot').classList.toggle('connected',connected);if(connected)document.querySelector('.connection-settings').open=false;const next=JSON.stringify(d.identity);if(connected&&identity&&identity!==next)resetPreview();if(connected)identity=next;window.remotePlanning?.sync();}
+  function status(d,collapse=true){connected=d.connected;remoteRoots=d.directories||[];$('remoteStatus').textContent=connected?`${d.identity.username}@${d.identity.host}`:'未连接 · 设置 SSH';$('remoteDot').classList.toggle('connected',connected);if(connected&&collapse)document.querySelector('.connection-settings').open=false;const next=JSON.stringify(d.identity);if(connected&&identity&&identity!==next)resetPreview();if(connected)identity=next;window.remotePlanning?.sync();}
   function settings(){return{host:$('sshHost').value.trim(),username:$('sshUser').value.trim(),port:Number($('sshPort').value),password:$('sshPassword').value,auto_connect:$('sshAuto').checked,directory:remoteRoots[0]?.path||'~'};}
-  async function connect(){message('正在连接 Jetson…');const d=settings();let result;try{result=await ssh('connect',d);}catch(e){if(!e.data?.fingerprint)throw e;if(!window.i18n.confirm(`首次连接 ${d.host}，请核对主机指纹：\n${e.data.fingerprint}\n\n信任此主机？`)){message('已取消连接。');return;}result=await ssh('connect',{...d,fingerprint:e.data.fingerprint});}finally{$('sshPassword').value='';}status(result);await buildTree();}
+  async function connect(){intent++;reconnectAllowed=true;message('正在连接 Jetson…');const d=settings();let result;try{result=await ssh('connect',d);}catch(e){if(!e.data?.fingerprint)throw e;if(!window.i18n.confirm(`首次连接 ${d.host}，请核对主机指纹：\n${e.data.fingerprint}\n\n信任此主机？`)){message('已取消连接。');return;}result=await ssh('connect',{...d,fingerprint:e.data.fingerprint});}finally{$('sshPassword').value='';}status(result);retryDelay=3000;nextRetry=0;await buildTree();if(result.warning)message(result.warning);}
+  async function recover(force=false){
+    const token=intent,wasConnected=connected,d=await ssh('health');if(token!==intent)return false;status(d,false);
+    if(d.connected)return false;
+    const p=d.profile||{};
+    if(!reconnectAllowed||!p.auto_connect||!p.host)return false;
+    if(!force&&Date.now()<nextRetry)return false;
+    // Do not replace edits in the connection form with a background login.
+    if(!force&&document.querySelector('.connection-settings').contains(document.activeElement))return false;
+    message('SSH 已断开，正在自动重连…');
+    try{
+      const result=await ssh('connect',{...p,password:''});if(token!==intent){if(!reconnectAllowed)await ssh('disconnect',{});return false;}status(result);
+      retryDelay=3000;nextRetry=0;message(result.warning||'SSH 已重新连接。');return true;
+    }catch(e){
+      nextRetry=Date.now()+retryDelay;retryDelay=Math.min(retryDelay*2,60000);
+      if(e.data?.fingerprint||['keychain_read','password_required'].includes(e.data?.reason)||[401,409].includes(e.httpStatus))reconnectAllowed=false;
+      if(wasConnected||force||!reconnectAllowed)message(e.message,true);
+      throw e;
+    }
+  }
+  async function checkConnection(){
+    if(working||checking||state.busy||document.hidden||!reconnectAllowed)return;
+    checking=true;
+    try{if(await recover())await run(()=>buildTree($('remoteDirectory').value));}
+    catch{}finally{checking=false;}
+  }
   async function open(path){if(state.busy)throw Error('请等待当前计算完成。');message('正在打开 '+path.split('/').pop()+'…');const d=await files('preview',{path,format:$('previewFormat').value});d.remote_identity=identity;d.csv_format=$('previewFormat').value;await openFilePreview(d);lastPath=path;if(d.kind==='route')$('remoteTarget').value=path;document.querySelectorAll('.remote-entry').forEach(b=>b.classList.toggle('selected',b.dataset.path===path));message(d.note);}
   let treeId=0;
   function treeIcon(kind){
@@ -118,9 +144,13 @@
       throw e;
     }finally{busy(false);}
   });
-  $('sshConnect').onclick=()=>run(connect);$('sshDisconnect').onclick=()=>run(async()=>{status(await ssh('disconnect',{}));await buildTree();message('已断开。当前预览保留在本机。');});$('sshForget').onclick=()=>run(async()=>{status(await ssh('forget',{}));$('sshPassword').value='';await buildTree();message('已忘记当前登录信息。');});
-  $('remoteRefresh').onclick=()=>run(()=>buildTree($('remoteDirectory').value));$('remoteDirectory').onkeydown=e=>{if(e.key==='Enter')run(()=>buildTree($('remoteDirectory').value));};$('remoteUp').onclick=()=>run(async()=>{status(await ssh('status'));await buildTree();});
+  $('sshConnect').onclick=()=>run(connect);$('sshDisconnect').onclick=()=>run(async()=>{intent++;reconnectAllowed=false;status(await ssh('disconnect',{}));await buildTree();message('已断开。当前预览保留在本机。');});$('sshForget').onclick=()=>run(async()=>{intent++;reconnectAllowed=false;status(await ssh('forget',{}));$('sshPassword').value='';await buildTree();message('已忘记当前登录信息。');});
+  async function refreshTree(){await recover(true);await buildTree($('remoteDirectory').value);}
+  $('remoteRefresh').onclick=()=>run(refreshTree);$('remoteDirectory').onkeydown=e=>{if(e.key==='Enter')run(refreshTree);};$('remoteUp').onclick=()=>run(async()=>{await recover(true);await buildTree();});
   $('previewFormat').onchange=()=>{if(lastPath&&/\.(csv|txt)$/i.test(lastPath))run(()=>open(lastPath));};
   $('remoteSave').onclick=()=>run(async()=>{if(!connected)throw Error('请先连接 Jetson。');if(state.busy)throw Error('请等待计算完成。');const key=$('remoteSource').value,fs=['speed','pp','mppi'].includes(key)?await window.speedSystem.prepare():key==='edited'?state.editedFiles:key==='speed'?(state.result?.files||state.speedOnly?.files):(state.result?.files||state.track?.files),url=fs?.[key];if(!url)throw Error('尚无所选规划结果。文件预览不会生成新的 CSV。');const payload={source:url,path:$('remoteTarget').value.trim()};if(!payload.path)throw Error('请填写目标文件路径。');let result;try{result=await ssh('save',payload);}catch(e){if(!e.data?.revision)throw e;if(!window.i18n.confirm(`用已生成的规划结果覆盖文件？\n${e.data.path}\n将先自动备份旧文件。`))return;result=await ssh('save',{...payload,revision:e.data.revision});}message('已保存：'+result.path+(result.backup?'\n备份：'+result.backup:''));});
-  run(async()=>{const d=await ssh('status'),p=d.profile||{};for(const[id,key]of[['sshHost','host'],['sshUser','username'],['sshPort','port']])if(p[key])$(id).value=p[key];if(p.host)$('sshAuto').checked=p.auto_connect===true;status(d);if(connected)await buildTree();else if(p.auto_connect)await connect();else await buildTree();});
+  run(async()=>{const d=await ssh('status'),p=d.profile||{};for(const[id,key]of[['sshHost','host'],['sshUser','username'],['sshPort','port']])if(p[key])$(id).value=p[key];if(p.host)$('sshAuto').checked=p.auto_connect===true;status(d);if(connected)await buildTree();else if(p.auto_connect){await recover(true);await buildTree();}else await buildTree();});
+  setInterval(checkConnection,15000);
+  window.addEventListener('focus',checkConnection);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)checkConnection();});
 })();

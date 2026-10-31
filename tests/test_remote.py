@@ -69,6 +69,47 @@ class Tests(unittest.TestCase):
         with patch('raceline_studio.remote.paramiko.SSHClient',return_value=ssh):
             with self.assertRaises(OSError): self.remote.connect(dict(host='car',username='u',password='secret'))
         self.remote.vault.set_password.assert_not_called();self.assertFalse(self.remote.config_path.exists())
+    def ssh(self):
+        ssh=Mock();ssh.open_sftp.return_value.normalize.return_value='/home/driver'
+        ssh.save_host_keys.side_effect=lambda p:Path(p).write_text('host key')
+        return ssh
+    def test_keychain_write_failure_keeps_authenticated_session(self):
+        self.remote.vault.set_password.side_effect=RuntimeError('vault unavailable')
+        ssh=self.ssh()
+        with patch('raceline_studio.remote.paramiko.SSHClient',return_value=ssh):
+            status=self.remote.connect(dict(host='vm',username='driver',password='secret',auto_connect=True))
+        self.assertTrue(status['connected']);self.assertIn('密码未能保存',status['warning'])
+        self.assertIs(self.remote.client,ssh);ssh.close.assert_not_called()
+        self.assertNotIn('secret',self.remote.config_path.read_text())
+    def test_reconnect_uses_memory_and_does_not_rewrite_keychain(self):
+        self.remote.vault.get_password.return_value='saved-secret'
+        ssh=self.ssh()
+        with patch('raceline_studio.remote.paramiko.SSHClient',return_value=ssh):
+            self.remote.connect(dict(host='vm',username='driver',auto_connect=True))
+            self.remote.close()
+            self.remote.vault.get_password.side_effect=RuntimeError('vault unavailable')
+            self.assertTrue(self.remote.connect(dict(host='vm',username='driver',auto_connect=True))['connected'])
+        self.remote.vault.get_password.assert_called_once()
+        self.remote.vault.set_password.assert_not_called()
+    def test_cache_is_scoped_to_host_port_and_user(self):
+        self.remote.credentials[json.dumps(['vm',22,'driver'])]='secret'
+        self.remote.vault.get_password.return_value=None
+        for options in [dict(host='other',username='driver'),dict(host='vm',username='other'),dict(host='vm',username='driver',port=23)]:
+            with self.assertRaises(RemoteError):self.remote.connect(options)
+    def test_keychain_read_failure_can_be_recovered_with_manual_password(self):
+        self.remote.vault.get_password.side_effect=RuntimeError('vault unavailable')
+        with self.assertRaises(RemoteError) as error:self.remote.connect(dict(host='vm',username='driver'))
+        self.assertEqual(error.exception.details['reason'],'keychain_read')
+        with patch('raceline_studio.remote.paramiko.SSHClient',return_value=self.ssh()):
+            self.assertTrue(self.remote.connect(dict(host='vm',username='driver',password='manual-secret'))['connected'])
+    def test_health_detects_broken_sftp_even_if_transport_is_active(self):
+        self.remote.sftp=Mock();self.remote.sftp.stat.side_effect=EOFError()
+        self.assertFalse(self.remote.health()['connected'])
+        self.assertIsNone(self.remote.sftp);self.assertIsNone(self.remote.client)
+    def test_old_broken_channel_close_does_not_block_reconnect(self):
+        self.remote.sftp=Mock();self.remote.sftp.close.side_effect=EOFError()
+        with patch('raceline_studio.remote.paramiko.SSHClient',return_value=self.ssh()):
+            self.assertTrue(self.remote.connect(dict(host='vm',username='driver',password='secret'))['connected'])
     def test_api_blocks_local_path_traversal(self):
         app=Flask(__name__);remote=install_remote(app,self.root);remote.client=Mock();remote.sftp=SFTP(self.root)
         with app.test_client() as c:

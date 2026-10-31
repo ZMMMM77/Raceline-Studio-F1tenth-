@@ -6,7 +6,7 @@ from raceline_studio import planner
 PARAMS=dict(reference='rear',wheelbase=.3302,limit_mode='steering',steer=24,
             car_width=.31,car_length=.58,rear_overhang=.1,margin=.1,
             nodes=80,spacing=.1,algorithm='min_curvature',max_runtime_s=300,
-            plateau_window=5,plateau_percent=.1)
+            plateau_window=5,plateau_percent=.1,solver='legacy')
 
 def circle(radius=10):
     t=np.linspace(0,2*np.pi,160,endpoint=False)

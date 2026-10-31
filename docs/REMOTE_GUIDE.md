@@ -41,3 +41,8 @@ Open a CSV from the SSH file tree, then expand Planning & import and click Impor
 This uses the same closed-loop validation, resampling, constraints and optimizer as local import. Speed is regenerated. Source files remain unchanged until Save to Jetson is explicitly used. Reopening another preview requires importing that file before optimizing it.
 
 The remote import regression tests cover local/remote equivalence, missing widths, relative YAML image paths, changed SSH identity, invalid loops, and optimization followed by CSV download. The browser workflow was also verified using the current remote Levine CSV and map.
+## Connection recovery
+
+The page checks the SFTP channel every 15 seconds while visible and checks again when you return to the page. With automatic login enabled, a broken connection is reopened using the saved host, port and username. Temporary failures use a retry delay of up to 60 seconds; Refresh checks immediately. Manually disconnecting or forgetting a login suspends background recovery until you connect again or reopen the page. Authentication failures and host-key changes require user action.
+
+Passwords stay in macOS Keychain. A successfully authenticated password is also retained in memory for that Studio process so an idle disconnect does not require another Keychain access. Existing saved passwords are not rewritten on every reconnect. If saving a newly entered password fails, the live SSH session remains usable and the page shows a warning. No password is written to project files or diagnostic logs. File overwrite operations are never automatically retried.
