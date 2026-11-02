@@ -24,6 +24,8 @@ OUTPUT=ROOT/'outputs';OUTPUT.mkdir(exist_ok=True)
 app=Flask(__name__,static_folder='static',static_url_path='/static')
 app.config['MAX_CONTENT_LENGTH']=45*1024*1024
 TRACKS={};JOBS={};RESULTS={};PLOT_LOCK=threading.Lock();COMPUTE_LOCK=threading.Lock()
+from raceline_studio.exclusions import ExclusionStore, ExclusionConflict, track_key
+EXCLUSIONS=ExclusionStore(ROOT/'.cache'/'exclusions')
 
 @app.before_request
 def local_only():
@@ -79,6 +81,8 @@ def plot(track,result,path):
         ax.plot(*np.vstack([p,p[0]]).T,'--',color='#149b85',lw=1.2,label='Centerline')
         if result:
             q=np.array(result['route']);ax.plot(*np.vstack([q,q[0]]).T,color='#e68136',lw=1.6,label='Minimum-curvature line' if result['metrics'].get('algorithm')=='min_curvature' else 'Curvature-constrained shortest line')
+        for i,zone in enumerate(track.get('exclusions',{}).get('zones',[])):
+            ax.fill(*np.asarray(zone).T,color='#e55c66',alpha=.3,edgecolor='#bb3c48',label='Exclusion zone' if i==0 else None)
         ax.scatter(*p[0],color='#213c52',s=25,zorder=5);ax.annotate('START',p[0],xytext=(5,7),textcoords='offset points',fontsize=9)
         ax.set_xlim(p[:,0].min()-4,p[:,0].max()+4);ax.set_ylim(p[:,1].min()-4,p[:,1].max()+4)
         ax.set_aspect('equal');ax.set_xlabel('Map x [m]');ax.set_ylabel('Map y [m]');ax.grid(alpha=.12);ax.legend(loc='best',framealpha=.9)
@@ -109,7 +113,7 @@ def pack(path):
 
 def public(track):
     ident=track['id'];m=track['map']
-    return {'id':ident,'name':track['name'],'boundary_mode':track['boundary_mode'],'diagnostics':track['diagnostics'],'preprocessing':track.get('preprocessing'),'remote_source':track.get('remote_source'),'source_kind':'csv' if track['source_route'] is not None else 'centerline','center':track['center'].tolist(),'widths':track['widths'].tolist(),'length':arc(track['center'])[1],'warnings':track['warnings'],'output_dir':str(track['dir']),'map':{'url':f'/outputs/{ident}/map.png','resolution':m.resolution,'origin':m.origin.tolist(),'width':m.image.width,'height':m.image.height} if m else None,'reference_image':f'/outputs/{ident}/reference_image.png' if track['reference_image'] else None,'files':{'center':f'/outputs/{ident}/centerline.csv','png':f'/outputs/{ident}/centerline.png','zip':f'/outputs/{ident}/results.zip'}}
+    return {'id':ident,'name':track['name'],'boundary_mode':track['boundary_mode'],'diagnostics':track['diagnostics'],'preprocessing':track.get('preprocessing'),'exclusions':EXCLUSIONS.load(track['exclusion_key']),'remote_source':track.get('remote_source'),'source_kind':'csv' if track['source_route'] is not None else 'centerline','center':track['center'].tolist(),'widths':track['widths'].tolist(),'length':arc(track['center'])[1],'warnings':track['warnings'],'output_dir':str(track['dir']),'map':{'url':f'/outputs/{ident}/map.png','resolution':m.resolution,'origin':m.origin.tolist(),'width':m.image.width,'height':m.image.height} if m else None,'reference_image':f'/outputs/{ident}/reference_image.png' if track['reference_image'] else None,'files':{'center':f'/outputs/{ident}/centerline.csv','png':f'/outputs/{ident}/centerline.png','zip':f'/outputs/{ident}/results.zip'}}
 
 def register(name,p,w,m,warnings,reference_image=None,source_route=None,boundary_mode='csv'):
     if has_crossing(p):raise PlanningError('参考路径自交。请提供一条按顺序排列、不自交的闭合赛道。')
@@ -119,6 +123,8 @@ def register(name,p,w,m,warnings,reference_image=None,source_route=None,boundary
                      cleanup=m.cleanup_info if m else None)
     track=dict(id=ident,name=name,boundary_mode=boundary_mode,diagnostics=diagnostics,center=p,widths=w,map=m,warnings=warnings,dir=path,source_route=source_route,
                reference_image=reference_image is not None)
+    track['exclusion_key']=track_key(p,w,m)
+    track['exclusions']=EXCLUSIONS.load(track['exclusion_key'])
     if m:
         m.image.save(path/'map.png')
         if m.extraction_free is not None:
@@ -250,27 +256,48 @@ def import_track():
         json_write(report_path,report);pack(track['dir'])
     return jsonify(public(track))
 
+@app.get('/api/tracks/<ident>/exclusions')
+def get_exclusions(ident):
+    if ident not in TRACKS:raise PlanningError('请重新导入地图，原会话可能已过期。')
+    return jsonify(EXCLUSIONS.load(TRACKS[ident]['exclusion_key']))
+
+@app.post('/api/tracks/<ident>/exclusions')
+def save_exclusions(ident):
+    if ident not in TRACKS:raise PlanningError('请重新导入地图，原会话可能已过期。')
+    data=request.get_json(silent=True) or {}
+    try:
+        config=EXCLUSIONS.save(TRACKS[ident]['exclusion_key'],data.get('zones'),data.get('revision'))
+    except ExclusionConflict as e:
+        return jsonify(error=str(e),current=EXCLUSIONS.load(TRACKS[ident]['exclusion_key'])),409
+    return jsonify(config)
+
 @app.post('/api/optimize')
 def start():
     data=request.get_json();ident=data.get('track_id')
     if ident not in TRACKS:raise PlanningError('请重新导入地图，原会话可能已过期。')
-    data['parameters']=dict(data.get('parameters') or {},boundary_mode=TRACKS[ident]['boundary_mode'])
+    track=dict(TRACKS[ident])
+    track['exclusions']=EXCLUSIONS.load(track['exclusion_key'])
+    if 'exclusion_revision' in data and data['exclusion_revision']!=track['exclusions']['revision']:
+        return jsonify(error='禁行区已改变，请重新载入后再计算。'),409
+    data['parameters']=dict(data.get('parameters') or {},boundary_mode=track['boundary_mode'],exclusion_zones=track['exclusions']['zones'])
     from raceline_studio.planner import vehicle_parameters, optimization_limits
     optimization_limits(data.get('parameters',{}))
     vehicle_parameters(data.get('parameters',{}))
     if not COMPUTE_LOCK.acquire(blocking=False):raise PlanningError('已有一项计算正在运行，请等待它完成。')
-    jobid=uuid.uuid4().hex;track=TRACKS[ident];JOBS[jobid]={'status':'running','message':'正在准备约束…','iteration':0}
+    jobid=uuid.uuid4().hex;JOBS[jobid]={'status':'running','message':'正在准备约束…','iteration':0}
     def worker():
         try:
             def progress(iteration,message):JOBS[jobid].update(iteration=iteration,message=message)
             result=optimize(track['center'],track['widths'],track['map'],data['parameters'],progress)
+            result['exclusions']=track['exclusions']
             result_id,path=directory('result')
+            if track['exclusions']['zones']:json_write(path/'exclusion_zones.json',track['exclusions'])
             np.savetxt(path/'centerline.csv',np.c_[track['center'],track['widths']],delimiter=',',header='x_m,y_m,w_tr_right_m,w_tr_left_m',fmt='%.7f')
             np.savetxt(path/'reference_path.csv',track['center'],delimiter=',',header='x_m,y_m',fmt='%.7f')
             route_filename='min_curvature_path.csv' if result['metrics']['algorithm']=='min_curvature' else 'shortest_path.csv'
             np.savetxt(path/route_filename,np.c_[result['route'],result['s'],result['heading'],result['curvature'],result['steering']],delimiter=',',header='x_m,y_m,s_m,psi_rad,kappa_radpm,steering_rad',fmt='%.7f')
             plot(track,result,path/'raceline_comparison.png')
-            json_write(path/'report.json',{'track':track['name'],'source_dir':str(track['dir']),'remote_source':track.get('remote_source'),'parameters':data['parameters'],'metrics':result['metrics'],'warnings':track['warnings'],'heading_convention':'atan2(dy,dx), zero = +x, CCW positive; NOT TUM north-zero convention','route_format':'comma separated, x/y first, comment header, no duplicated closing point; speed profile generated separately','boundary_model':('original raster SDF only; ray endpoints are not walls' if track['boundary_mode']=='map' else 'CSV corridor and optional original raster')+('; oriented covering discs plus margin; dense validation' if result['metrics'].get('footprint_model')=='oriented_covering_discs' else '; circumscribed disk plus margin; dense validation'),'import_diagnostics':track['diagnostics'],'limitations':['Validated feasible numerical route. Early stopping does not imply solver convergence or global optimality.','Kinematic curvature constraint only; speed must be planned separately.','Raster correctness depends on resolution/origin/thresholds and supplied map.','Curvature is densely sampled, not an analytic interval certificate.']})
+            json_write(path/'report.json',{'track':track['name'],'source_dir':str(track['dir']),'remote_source':track.get('remote_source'),'parameters':data['parameters'],'exclusions':track['exclusions'],'metrics':result['metrics'],'warnings':track['warnings'],'heading_convention':'atan2(dy,dx), zero = +x, CCW positive; NOT TUM north-zero convention','route_format':'comma separated, x/y first, comment header, no duplicated closing point; speed profile generated separately','boundary_model':('original raster SDF only; ray endpoints are not walls' if track['boundary_mode']=='map' else 'CSV corridor and optional original raster')+('; user exclusion polygons' if track['exclusions']['zones'] else '')+('; oriented covering discs plus margin; dense validation' if result['metrics'].get('footprint_model')=='oriented_covering_discs' else '; circumscribed disk plus margin; dense validation'),'import_diagnostics':track['diagnostics'],'limitations':['Validated feasible numerical route. Early stopping does not imply solver convergence or global optimality.','Kinematic curvature constraint only; speed must be planned separately.','Raster correctness depends on resolution/origin/thresholds and supplied map.','Curvature is densely sampled, not an analytic interval certificate.']})
             pack(path)
             result.update(result_id=result_id,output_dir=str(path),files={'center':f'/outputs/{result_id}/centerline.csv','route':f'/outputs/{result_id}/{route_filename}','png':f'/outputs/{result_id}/raceline_comparison.png','zip':f'/outputs/{result_id}/results.zip'})
             RESULTS[result_id]=dict(track=track,result=result,path=path)
@@ -333,7 +360,7 @@ def job(job):
 def download(ident,filename):
     if not (len(ident)==24 and all(c.isalnum() or c=='_' for c in ident)):
         return jsonify(error='无效结果目录。'),404
-    allowed={'pure_pursuit.csv','mppi.csv','edited_waypoints.csv','min_curvature_path.csv','centerline.csv','reference_path.csv','extraction_mask.png','extraction_changes.png','distance_field.png','shortest_path.csv','speed_waypoints.csv','centerline.png','raceline_comparison.png','speed_profile.png','map.png','reference_image.png','results.zip','report.json','import_report.json'}
+    allowed={'exclusion_zones.json','pure_pursuit.csv','mppi.csv','edited_waypoints.csv','min_curvature_path.csv','centerline.csv','reference_path.csv','extraction_mask.png','extraction_changes.png','distance_field.png','shortest_path.csv','speed_waypoints.csv','centerline.png','raceline_comparison.png','speed_profile.png','map.png','reference_image.png','results.zip','report.json','import_report.json'}
     if filename not in allowed:return jsonify(error='文件不存在。'),404
     return send_from_directory(OUTPUT/ident,filename,as_attachment=request.args.get('download')=='1')
 

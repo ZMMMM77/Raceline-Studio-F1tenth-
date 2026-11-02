@@ -62,12 +62,12 @@ class Corridor:
 
 
 class Fields:
-    def __init__(self,center,widths,map_data,boundary_mode):
-        self.map=map_data
+    def __init__(self,center,widths,map_data,boundary_mode,exclusions=None):
+        self.map=map_data;self.exclusions=exclusions
         self.corridor=Corridor(center,widths) if boundary_mode=='csv' else None
 
     def distance(self,p,gradient=False):
-        fields=[f for f in (self.map,self.corridor) if f is not None]
+        fields=[f for f in (self.map,self.corridor,self.exclusions) if f is not None]
         if not gradient:return np.minimum.reduce([f.distance(p) for f in fields])
         values,grads=zip(*(f.distance(p,True) for f in fields))
         ids=np.argmin(values,axis=0);rows=np.arange(len(p))
@@ -186,7 +186,9 @@ def optimize_iqp(center,widths,map_data,parameters,progress=lambda *a:None):
     vehicle.update(boundary_mode=boundary_mode,footprint_model='oriented_covering_discs')
     if boundary_mode=='csv' and np.min(np.sum(widths,axis=1))<=float(vehicle['car_width'])+2*vehicle['margin']:
         raise PlanningError('CSV 走廊宽度不足以容纳车宽及两侧安全余量。')
-    fields=Fields(center,widths,map_data,boundary_mode)
+    from .exclusions import ExclusionField
+    zones=parameters.get('exclusion_zones',[])
+    fields=Fields(center,widths,map_data,boundary_mode,ExclusionField(zones) if zones else None)
     p,w=resample(center,widths,count=nodes)
     seeds=[('CSV/reference',p,w)]
     # A second reference and a smoothed seed explore genuinely different starts.

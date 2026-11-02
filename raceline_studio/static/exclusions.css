@@ -1,0 +1,11 @@
+/* Overlay controls reserve no space in the map workspace. */
+#exclusionPanel{position:absolute;z-index:6;top:62px;right:12px;width:min(310px,calc(100% - 24px));max-height:calc(100% - 110px);overflow:auto;padding:12px;background:#142136f5;border:1px solid #3a506b;border-radius:8px;box-shadow:0 8px 26px #0006;color:#c5d8ed;font-size:12px}
+#exclusionPanel[hidden]{display:none}
+.exclusion-heading,.exclusion-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.exclusion-heading{justify-content:space-between;margin-bottom:10px}
+#exclusionPanel button{font:inherit;padding:6px 9px}
+#exclusionPanel select{font:inherit;width:100%;margin:8px 0;padding:6px;background:#1a2b41;color:#c5d8ed;border:1px solid #354b68;border-radius:5px}
+#exclusionPanel .hint{margin:8px 0 0;font-size:11px;line-height:1.55}
+#exclusionStatus.error{color:#ffabb7}
+#exclusionToggle[aria-expanded=true]{border-color:#ee6d7f;color:#ffb1bb}
+#trackCanvas.drawing-exclusion{cursor:crosshair}

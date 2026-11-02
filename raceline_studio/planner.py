@@ -384,14 +384,14 @@ def has_crossing(p):
 
 
 class SplineProblem:
-    def __init__(self,center,widths,map_data,vehicle,nodes,algorithm="shortest"):
+    def __init__(self,center,widths,map_data,vehicle,nodes,algorithm="shortest",exclusions=None):
         if algorithm not in ("shortest","min_curvature"):raise PlanningError("未知路线算法。")
         self.algorithm=algorithm
         self.p,self.w=resample(center,widths,count=nodes)
         self.map_only=bool(map_data is not None and vehicle.get('boundary_mode')=='map')
         if self.map_only:self.w=map_data.widths(self.p,cap=False)
         self.n=normals(self.p);self.s,self.total=arc(self.p)
-        self.vehicle=vehicle;self.map=map_data
+        self.vehicle=vehicle;self.map=map_data;self.exclusions=exclusions
         self.base=CubicSpline(self.s,np.vstack([self.p,self.p[0]]),bc_type='periodic')
         ident=np.eye(nodes)
         self.basis=CubicSpline(self.s,np.vstack([ident,ident[0]]),bc_type='periodic')
@@ -441,6 +441,10 @@ class SplineProblem:
             jacs.append(grad[:,0,None]*self.mx[0]+grad[:,1,None]*self.my[0])
         if self.map:
             distance,grad=self.map.distance(pos,True)
+            vals.append(distance-clearance)
+            jacs.append(grad[:,0,None]*self.mx[0]+grad[:,1,None]*self.my[0])
+        if self.exclusions is not None:
+            distance,grad=self.exclusions.distance(pos,True)
             vals.append(distance-clearance)
             jacs.append(grad[:,0,None]*self.mx[0]+grad[:,1,None]*self.my[0])
         result=(np.concatenate(vals),np.vstack(jacs),pos,k)
@@ -507,6 +511,8 @@ def _validate_candidate(problem,x,spacing):
     bound_gap=max(np.max(np.linalg.norm(np.roll(boundary_r,-1,axis=0)-boundary_r,axis=1)),np.max(np.linalg.norm(np.roll(boundary_l,-1,axis=0)-boundary_l,axis=1)))
     geom_clearance=cKDTree(boundary).query(pp)[0]-bound_gap/2
     map_clearance=problem.map.distance(pp) if problem.map else np.full(len(pp),np.inf)
+    if problem.exclusions is not None:
+        map_clearance=np.minimum(map_clearance,problem.exclusions.distance(pp))
     if problem.map_only:
         geom_clearance=np.full(len(pp),np.inf)
         corridor=np.full(len(pp),np.inf)
@@ -525,6 +531,19 @@ def _validate_candidate(problem,x,spacing):
 
 
 def optimize(center,widths,map_data,parameters,progress=lambda *a:None):
+    from .exclusions import validate_zones
+    zones=validate_zones(parameters.get('exclusion_zones',[]))
+    try:
+        result=_optimize(center,widths,map_data,dict(parameters,exclusion_zones=zones),progress)
+    except PlanningError as e:
+        if zones:
+            raise PlanningError('未找到满足禁行区及车辆约束的路线。请检查禁行区是否堵断通道、车辆余量或求解时间。'+str(e)) from e
+        raise
+    if zones:result['metrics']['exclusion_count']=len(zones)
+    return result
+
+
+def _optimize(center,widths,map_data,parameters,progress=lambda *a:None):
     if parameters.get('algorithm')=='min_curvature' and parameters.get('solver','iterative_qp')!='legacy':
         from .iqp import optimize_iqp
         return optimize_iqp(center,widths,map_data,parameters,progress)
@@ -592,14 +611,16 @@ def optimize(center,widths,map_data,parameters,progress=lambda *a:None):
             chosen=best.copy() if best is not None else last.copy()
             return OptimizeResult(x=chosen,success=False,message=stopped.reason,last_x=last),stopped.reason
 
-    problem=SplineProblem(center,widths,map_data,vehicle,nodes,algorithm)
+    from .exclusions import ExclusionField
+    exclusions=ExclusionField(parameters['exclusion_zones']) if parameters['exclusion_zones'] else None
+    problem=SplineProblem(center,widths,map_data,vehicle,nodes,algorithm,exclusions)
     x=np.zeros(nodes)
     feasibility_iterations=0
     if algorithm=='min_curvature' and nodes>80:
         progress(iteration,'最小曲率优化 · 正在生成粗网格初值（计入求解时限）')
-        coarse=SplineProblem(center,widths,map_data,vehicle,80,algorithm)
+        coarse=SplineProblem(center,widths,map_data,vehicle,80,algorithm,exclusions)
         coarse.setup(320)
-        seed,_=run_stage(coarse,np.zeros(80),300,'粗网格初值',allow_plateau=False,feasibility=boundary_mode=='map')
+        seed,_=run_stage(coarse,np.zeros(80),300,'粗网格初值',allow_plateau=False,feasibility=boundary_mode=='map' or exclusions is not None)
         if boundary_mode=='map':feasibility_iterations=iteration
         if np.isfinite(seed.x).all():
             x=np.interp(problem.s[:-1]/problem.total,coarse.s/coarse.total,np.r_[seed.x,seed.x[0]])
@@ -613,7 +634,7 @@ def optimize(center,widths,map_data,parameters,progress=lambda *a:None):
     for refinement in range(3):
         problem.setup(nodes*(4*2**refinement))
         label=f'第 {refinement+1}/3 轮约束检查'
-        if boundary_mode=='map' and time.monotonic()-started<runtime:
+        if (boundary_mode=='map' or exclusions is not None) and time.monotonic()-started<runtime:
             progress(iteration,f'阶段一：修复可行性 · {label}')
             before=iteration
             if np.min(problem.evaluate(x)[0])<-1e-6:

@@ -1,6 +1,38 @@
 /* One interface, two languages. Keys are the original Chinese UI copy. */
 (() => {
-  const rows = `最小曲率求解器 | Minimum-curvature solver
+  const rows = `禁行区 | Exclusion zones
+禁行区设置 | Exclusion zone settings
+关闭禁行区设置 | Close exclusion zone settings
+选择禁行区域 | Select exclusion zone
+区域 | Zone
+新增区域 | Add zone
+完成 | Finish
+撤销顶点 | Undo vertex
+删除此区域 | Delete this zone
+撤销更改 | Undo change
+圈出不希望车辆进入的区域，不修改原地图。 | Mark areas to avoid without changing the original map.
+禁行区与当前地图绑定保存。重新计算时检查车身及安全余量。 | Zones are saved for this map. Recalculation checks the vehicle footprint and safety margin.
+依次点击顶点，点击起点或按 Enter 完成；Esc 取消。 | Click vertices, then click the first vertex or press Enter to finish; Esc cancels.
+禁行区已改变 · 请重新计算 | Exclusion zones changed · Recalculate
+上次结果对应旧禁行区，请重新计算以检查新范围。 | The previous result uses earlier zones. Recalculate to validate the new area.
+禁行区已保存。点击原来的计算按钮，按剩余范围重新优化。 | Exclusion zones saved. Use the existing calculation button to optimize within the remaining area.
+正在保存禁行区… | Saving exclusion zones…
+已保存；下次计算生效。 | Saved; applies to the next calculation.
+已取消本次绘制。 | Drawing cancelled.
+禁行区保存失败，请重试。 | Could not save exclusion zones. Please retry.
+每个禁行区最多 64 个顶点，请完成当前区域。 | Each zone supports up to 64 vertices. Please finish the current zone.
+请先完成或取消禁行区绘制，并等待保存完成。 | Finish or cancel the exclusion drawing and wait for it to save.
+禁行区已在其他窗口更改，请重新载入后再编辑。 | Exclusion zones changed in another window. Reload before editing.
+禁行区已改变，请重新载入后再计算。 | Exclusion zones changed. Reload before calculating.
+禁行区不能重复顶点或自交，请重新圈选。 | Zones cannot have repeated vertices or self intersections. Draw the zone again.
+禁行区面积太小，请重新圈选。 | The zone area is too small. Draw the zone again.
+禁行区顶点需要有效的地图坐标。 | Zone vertices must use valid map coordinates.
+禁行区最多 20 个，每个区域需要 3–64 个顶点。 | Up to 20 zones, with 3–64 vertices per zone.
+禁行区最多 20 个，每个区域需要 3–64 个有效地图坐标。 | Up to 20 zones, with 3–64 valid world coordinate vertices per zone.
+已保存的禁行区无法读取，请检查本地规划设置。 | Saved zones could not be read. Check the local planning settings.
+无效的禁行区地图标识。 | Invalid map identity for exclusion zones.
+未找到满足禁行区及车辆约束的路线。请检查禁行区是否堵断通道、车辆余量或求解时间。 | No route satisfying the exclusion and vehicle constraints was found. Check blocked passages, vehicle clearance, or the time limit.
+最小曲率求解器 | Minimum-curvature solver
 迭代 QP＋车身轮廓（推荐） | Iterative QP + oriented footprint (recommended)
 原 SLSQP＋外接圆（对照） | Original SLSQP + enclosing circle (comparison)
 迭代 QP 多初值求解结束；已选择通过检查的最低曲率积分路线 | Iterative QP search finished; selected the validated candidate with the lowest curvature energy
